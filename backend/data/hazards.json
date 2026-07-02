@@ -1,0 +1,39 @@
+[
+  {
+    "id": 1,
+    "lat": 35.6895,
+    "lng": 139.6917,
+    "type": "Traffic",
+    "description": "Narrow road with heavy traffic."
+  },
+  {
+    "id": 2,
+    "lat": 35.6905,
+    "lng": 139.6927,
+    "type": "Lighting",
+    "description": "Very dark at night, no street lights."
+  },
+  {
+    "lat": 38.3228112833216,
+    "lng": 140.3592109797584,
+    "type": "Lighting",
+    "description": "暗い",
+    "id": 3
+  },
+  {
+    "id": 4,
+    "lat": 38.32256393816334,
+    "lng": 140.3590420036235,
+    "type": "Traffic",
+    "description": "車が多い",
+    "imageUrl": null
+  },
+  {
+    "id": 5,
+    "lat": 38.322961790765035,
+    "lng": 140.35932629465333,
+    "type": "Lighting",
+    "description": "暗い",
+    "imageUrl": null
+  }
+]
