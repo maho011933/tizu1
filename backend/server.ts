@@ -6,6 +6,11 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
 
+import dotenv from 'dotenv';
+import { generateSafetyAdvice, assistHazardInput } from './services/geminiService.js';
+
+dotenv.config();
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -28,6 +33,7 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+
 // Get all hazards
 app.get('/api/hazards', (req, res) => {
   fs.readFile(DATA_FILE, 'utf8', (err, data) => {
@@ -39,31 +45,39 @@ app.get('/api/hazards', (req, res) => {
 });
 
 // Post a new hazard with image
-app.post('/api/hazards', upload.single('image'), (req, res) => {
+app.post('/api/hazards', upload.single('image'), async (req, res) => {
   const { lat, lng, type, description } = req.body;
   const imageUrl = req.file ? `http://localhost:3001/uploads/${req.file.filename}` : null;
 
-  fs.readFile(DATA_FILE, 'utf8', (err, data) => {
-    if (err) return res.status(500).send('Error reading data file');
-    const hazards = JSON.parse(data);
-    const newId = hazards.length > 0 ? hazards[hazards.length - 1].id + 1 : 1;
-    
-    const newHazard = {
-      id: newId,
-      lat: parseFloat(lat),
-      lng: parseFloat(lng),
-      type,
-      description,
-      imageUrl,
-      comments: []
-    };
+  try {
+    const aiAdvice = await generateSafetyAdvice(description, type);
 
-    hazards.push(newHazard);
-    fs.writeFile(DATA_FILE, JSON.stringify(hazards, null, 2), (err) => {
-      if (err) return res.status(500).send('Error saving data');
-      res.status(201).json(newHazard);
+    fs.readFile(DATA_FILE, 'utf8', (err, data) => {
+      if (err) return res.status(500).send('Error reading data file');
+      const hazards = JSON.parse(data);
+      const newId = hazards.length > 0 ? hazards[hazards.length - 1].id + 1 : 1;
+      
+      const newHazard = {
+        id: newId,
+        lat: parseFloat(lat),
+        lng: parseFloat(lng),
+        type,
+        description,
+        imageUrl,
+        aiAdvice,
+        comments: []
+      };
+
+      hazards.push(newHazard);
+      fs.writeFile(DATA_FILE, JSON.stringify(hazards, null, 2), (err) => {
+        if (err) return res.status(500).send('Error saving data');
+        res.status(201).json(newHazard);
+      });
     });
-  });
+  } catch (error) {
+    console.error('Error adding hazard:', error);
+    res.status(500).send('Error processing hazard registration');
+  }
 });
 
 // Post a comment to a hazard
@@ -100,6 +114,7 @@ app.post('/api/hazards/:id/comments', (req, res) => {
 });
 
 // Delete a hazard (Resolve)
+
 app.delete('/api/hazards/:id', (req, res) => {
   const id = parseInt(req.params.id);
   fs.readFile(DATA_FILE, 'utf8', (err, data) => {
@@ -113,8 +128,9 @@ app.delete('/api/hazards/:id', (req, res) => {
   });
 });
 
+
 // Update a hazard
-app.put('/api/hazards/:id', upload.single('image'), (req, res) => {
+app.put('/api/hazards/:id', upload.single('image'), (req: any, res: any) => {
   const id = parseInt(req.params.id);
   const { type, description } = req.body;
   const imageUrl = req.file ? `http://localhost:3001/uploads/${req.file.filename}` : req.body.imageUrl;
@@ -138,6 +154,33 @@ app.put('/api/hazards/:id', upload.single('image'), (req, res) => {
       res.json(hazards[index]);
     });
   });
+});
+
+// AI Safety Advice endpoint
+app.post('/api/ai/advice', async (req, res) => {
+  const { description, type } = req.body;
+  if (!description || !type) {
+    return res.status(400).json({ error: 'description and type are required' });
+  }
+  try {
+    const advice = await generateSafetyAdvice(description, type);
+    res.json(advice);
+  } catch (error) {
+    res.status(500).json({ error: 'AIアドバイスの生成に失敗しました' });
+  }
+});
+
+// AI Input Assist endpoint (supports optional image upload)
+app.post('/api/ai/assist', upload.single('image'), async (req, res) => {
+  const { text } = req.body;
+  const imagePath = req.file ? req.file.path : undefined;
+
+  try {
+    const result = await assistHazardInput(text || '', imagePath);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: '入力アシストの生成に失敗しました' });
+  }
 });
 
 app.listen(PORT, () => {

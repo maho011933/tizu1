@@ -63,6 +63,12 @@ interface Comment {
   createdAt: string;
 }
 
+interface AiAdvice {
+  forKids: string;
+  forAdults: string;
+  isMock?: boolean;
+}
+
 interface Hazard {
   id: number;
   lat: number;
@@ -71,6 +77,7 @@ interface Hazard {
   description: string;
   imageUrl?: string | null;
   comments?: Comment[];
+  aiAdvice?: AiAdvice;
 }
 
 function App() {
@@ -80,6 +87,7 @@ function App() {
   const [type, setType] = useState('Traffic');
   const [description, setDescription] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [isAiAssisting, setIsAiAssisting] = useState(false);
   const [mapCenter, setMapCenter] = useState<[number, number]>([35.6895, 139.6917]);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [activeTab, setActiveTab] = useState<'map' | 'list' | 'form'>('map');
@@ -271,6 +279,49 @@ function App() {
         }));
         setCommentTexts({ ...commentTexts, [hazardId]: '' });
       });
+  };
+
+  const handleAiAssist = async () => {
+    if (!description && !imageFile) {
+      return alert('ひと言メモを かくか、しゃしんを えらんでから AIおたすけボタンを おしてね！');
+    }
+    setIsAiAssisting(true);
+    try {
+      const formData = new FormData();
+      formData.append('text', description);
+      if (imageFile) {
+        formData.append('image', imageFile);
+      }
+      const res = await fetch('http://localhost:3001/api/ai/assist', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      if (data.suggestedDescription) {
+        setDescription(data.suggestedDescription);
+      }
+      if (data.suggestedType) {
+        const typeMap: Record<string, string> = {
+          '工事中': 'Traffic',
+          '不審者': 'Crime',
+          '事故多発': 'Traffic',
+          '暗い道': 'Lighting',
+          '急な坂・階段': 'Disaster',
+          'Traffic': 'Traffic',
+          'Crime': 'Crime',
+          'Disaster': 'Disaster',
+          'Lighting': 'Lighting'
+        };
+        if (typeMap[data.suggestedType]) {
+          setType(typeMap[data.suggestedType]);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      alert('AIアシストに しっぱいしました');
+    } finally {
+      setIsAiAssisting(false);
+    }
   };
 
   const typeLabels: Record<string, string> = {
@@ -480,6 +531,18 @@ function App() {
                     {h.imageUrl && (
                       <img src={h.imageUrl} alt="Hazard" style={{ width: '100%', maxHeight: '200px', objectFit: 'cover', borderRadius: '8px', marginBottom: '0.8rem' }} />
                     )}
+
+                    {/* AI Safety Advice in Popup */}
+                    {h.aiAdvice && (
+                      <div style={{ textAlign: 'left', background: '#EEF9FF', padding: '0.6rem', borderRadius: '8px', marginBottom: '0.8rem', border: '1px solid #BEE3F8' }}>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#2B6CB0', marginBottom: '0.3rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                          <span>🤖</span> あんぜん博士のアドバイス
+                        </div>
+                        <div style={{ fontSize: '0.85rem', color: '#2C5282', lineHeight: '1.4', background: 'white', padding: '0.4rem', borderRadius: '6px' }}>
+                          {h.aiAdvice.forKids}
+                        </div>
+                      </div>
+                    )}
                     
                     {/* Comments in Popup */}
                     <div style={{ textAlign: 'left', background: '#F8F9FA', padding: '0.5rem', borderRadius: '8px', marginBottom: '0.8rem' }}>
@@ -653,6 +716,31 @@ function App() {
                   placeholder="れい：みちが くらい、くるまが おおい"
                   required
                 />
+                <button
+                  type="button"
+                  onClick={handleAiAssist}
+                  disabled={isAiAssisting}
+                  style={{
+                    marginTop: '0.5rem',
+                    width: '100%',
+                    padding: '0.6rem 1rem',
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: isAiAssisting ? 'wait' : 'pointer',
+                    fontWeight: 'bold',
+                    fontSize: '0.9rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    boxShadow: '0 2px 5px rgba(0,0,0,0.15)',
+                    opacity: isAiAssisting ? 0.7 : 1
+                  }}
+                >
+                  <span>🤖</span> {isAiAssisting ? 'AIが かんがえちゅう...' : 'AIにおまかせ！ カテゴリ・せつめい自動アシスト'}
+                </button>
               </div>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 {editingHazardId && (
@@ -739,6 +827,23 @@ function App() {
                   <p style={{ fontSize: '1rem', margin: '0.5rem 0', color: '#333', fontWeight: '500' }}>{h.description}</p>
                   {h.imageUrl && (
                     <img src={h.imageUrl} alt="Hazard" style={{ width: '100%', maxHeight: isMobile ? '200px' : '150px', objectFit: 'cover', marginTop: '0.5rem', borderRadius: '8px' }} />
+                  )}
+
+                  {/* AI Safety Advice in List */}
+                  {h.aiAdvice && (
+                    <div style={{ marginTop: '0.8rem', background: '#F0F7FF', padding: '0.8rem', borderRadius: '8px', border: '1px solid #BAE6FD' }}>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#0369A1', marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                        <span>🤖</span> あんぜん博士のアドバイス
+                      </div>
+                      <div style={{ fontSize: '0.9rem', color: '#0C4A6E', marginBottom: '0.4rem', background: 'white', padding: '0.5rem', borderRadius: '6px', lineHeight: '1.4' }}>
+                        <strong>👶 こども向け:</strong> {h.aiAdvice.forKids}
+                      </div>
+                      {h.aiAdvice.forAdults && (
+                        <div style={{ fontSize: '0.8rem', color: '#334155', background: '#F8FAFC', padding: '0.4rem 0.5rem', borderRadius: '6px', lineHeight: '1.3' }}>
+                          <strong>👥 おとな向け:</strong> {h.aiAdvice.forAdults}
+                        </div>
+                      )}
+                    </div>
                   )}
 
                   {/* Comment Section in List */}
