@@ -57,6 +57,55 @@ const getHomeIcon = () => {
   });
 };
 
+const getUserLocationIcon = () => {
+  return L.divIcon({
+    className: 'user-location-icon',
+    html: `
+      <div class="user-location-container">
+        <div class="user-location-pulse"></div>
+        <div class="user-location-dot">🚶‍♂️</div>
+        <div style="position: absolute; top: -20px; left: 50%; transform: translateX(-50%); background: #2980B9; color: white; font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 10px; white-space: nowrap; border: 1px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+          いまいるばしょ
+        </div>
+      </div>
+    `,
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+  });
+};
+
+const LocateControl = ({ userPos }: { userPos: [number, number] | null }) => {
+  const map = useMap();
+  if (!userPos) return null;
+
+  return (
+    <button
+      onClick={() => map.flyTo(userPos, 16, { animate: true, duration: 1 })}
+      title="いまいるばしょへ移動"
+      style={{
+        position: 'absolute',
+        top: '10px',
+        right: '10px',
+        zIndex: 1000,
+        backgroundColor: 'white',
+        border: '2px solid #3498DB',
+        borderRadius: '50px',
+        padding: '8px 14px',
+        cursor: 'pointer',
+        fontWeight: 'bold',
+        fontSize: '0.85rem',
+        color: '#2980B9',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px'
+      }}
+    >
+      <span>📍</span> いまいるばしょ
+    </button>
+  );
+};
+
 interface Comment {
   id: number;
   text: string;
@@ -81,6 +130,7 @@ function App() {
   const [description, setDescription] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [mapCenter, setMapCenter] = useState<[number, number]>([35.6895, 139.6917]);
+  const [userPos, setUserPos] = useState<[number, number] | null>(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [activeTab, setActiveTab] = useState<'map' | 'list' | 'form'>('map');
   const [homePos, setHomePos] = useState<[number, number] | null>(() => {
@@ -94,6 +144,26 @@ function App() {
   });
   const [commentTexts, setCommentTexts] = useState<Record<number, string>>({});
   const [selectedHazardId, setSelectedHazardId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if ("geolocation" in navigator) {
+      const watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          const pos: [number, number] = [position.coords.latitude, position.coords.longitude];
+          setUserPos(pos);
+        },
+        (error) => {
+          console.error("Error watching location:", error);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 1000
+        }
+      );
+      return () => navigator.geolocation.clearWatch(watchId);
+    }
+  }, []);
 
   useEffect(() => {
     if (selectedHazardId && (!isMobile || activeTab === 'list')) {
@@ -454,6 +524,12 @@ function App() {
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             />
             <MapUpdater center={mapCenter} />
+            {userPos && (
+              <Marker position={userPos} icon={getUserLocationIcon()}>
+                <Popup>🚶‍♂️ いまいるばしょ</Popup>
+              </Marker>
+            )}
+            <LocateControl userPos={userPos} />
             {homePos && (
               <Marker position={homePos} icon={getHomeIcon()}>
                 <Popup>🏠 いつもの ばしょ</Popup>
