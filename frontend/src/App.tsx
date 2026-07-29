@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap, Polyline } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import { useLocation } from './context/LocationContext';
 
 // Fix for default marker icons in React Leaflet
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
@@ -122,7 +123,87 @@ interface Hazard {
   comments?: Comment[];
 }
 
+// 2点間の距離(メートル)を計算 (Haversine formula)
+const getDistanceInMeters = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const R = 6371e3;
+  const φ1 = lat1 * Math.PI / 180;
+  const φ2 = lat2 * Math.PI / 180;
+  const Δφ = (lat2 - lat1) * Math.PI / 180;
+  const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+          Math.cos(φ1) * Math.cos(φ2) *
+          Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c;
+};
+
+// Web Audio API による効果音再生
+const playAlertSound = () => {
+  try {
+    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContext) return;
+    const ctx = new AudioContext();
+
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(880, ctx.currentTime);
+    gain1.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(ctx.currentTime);
+    osc1.stop(ctx.currentTime + 0.15);
+
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(1760, ctx.currentTime + 0.18);
+    gain2.gain.setValueAtTime(0.3, ctx.currentTime + 0.18);
+    gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(ctx.currentTime + 0.18);
+    osc2.stop(ctx.currentTime + 0.4);
+  } catch (e) {
+    console.error("Audio play error:", e);
+  }
+};
+
+// 音声読み上げ（SpeechSynthesis）
+const speakAlertText = (text: string) => {
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'ja-JP';
+    utterance.rate = 1.0;
+    utterance.pitch = 1.2;
+    window.speechSynthesis.speak(utterance);
+  }
+};
+
+const categoryNames: Record<string, string> = {
+  Traffic: 'こうつう・くるま 🚗',
+  Crime: 'ふしんしゃ・ぼうはん 👮',
+  Disaster: 'さいがい・すいげん 🌊',
+  Lighting: 'くらみち・がいとう 🌙',
+  Other: 'そのほか 🐾'
+};
+
 function App() {
+  const { 
+    userPos, 
+    accuracy, 
+    isTracking, 
+    locationHistory, 
+    error: locationError, 
+    startTracking, 
+    stopTracking, 
+    clearHistory 
+  } = useLocation();
+
   const [hazards, setHazards] = useState<Hazard[]>([]);
   const [newHazardPos, setNewHazardPos] = useState<L.LatLng | null>(null);
   const [editingHazardId, setEditingHazardId] = useState<number | null>(null);
@@ -130,7 +211,6 @@ function App() {
   const [description, setDescription] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [mapCenter, setMapCenter] = useState<[number, number]>([35.6895, 139.6917]);
-  const [userPos, setUserPos] = useState<[number, number] | null>(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [activeTab, setActiveTab] = useState<'map' | 'list' | 'form'>('map');
   const [homePos, setHomePos] = useState<[number, number] | null>(() => {
@@ -144,26 +224,85 @@ function App() {
   });
   const [commentTexts, setCommentTexts] = useState<Record<number, string>>({});
   const [selectedHazardId, setSelectedHazardId] = useState<number | null>(null);
+  const [showHistoryPolyline, setShowHistoryPolyline] = useState<boolean>(true);
 
+  // 通知機能用State
+  const [isNotificationEnabled, setIsNotificationEnabled] = useState<boolean>(() => {
+    return localStorage.getItem('notificationEnabled') === 'true';
+  });
+  const [isAudioEnabled, setIsAudioEnabled] = useState<boolean>(() => {
+    return localStorage.getItem('audioEnabled') !== 'false';
+  });
+  const [alertDistance, setAlertDistance] = useState<number>(() => {
+    const saved = localStorage.getItem('alertDistance');
+    return saved ? parseInt(saved, 10) : 100;
+  });
+  const [activeAlert, setActiveAlert] = useState<{ hazard: Hazard; distance: number } | null>(null);
+  const [notifiedHazardIds, setNotifiedHazardIds] = useState<Record<number, number>>({});
+  const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
+
+
+
+
+  // 危険箇所への接近判定
   useEffect(() => {
-    if ("geolocation" in navigator) {
-      const watchId = navigator.geolocation.watchPosition(
-        (position) => {
-          const pos: [number, number] = [position.coords.latitude, position.coords.longitude];
-          setUserPos(pos);
-        },
-        (error) => {
-          console.error("Error watching location:", error);
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 1000
+    if (!userPos || !isNotificationEnabled || hazards.length === 0) return;
+
+    const [userLat, userLng] = userPos;
+    const now = Date.now();
+
+    for (const h of hazards) {
+      const dist = getDistanceInMeters(userLat, userLng, h.lat, h.lng);
+
+      if (dist <= alertDistance) {
+        const lastNotified = notifiedHazardIds[h.id] || 0;
+        // 5分(300,000ms)以内に通知していなければ発火
+        if (now - lastNotified > 300000) {
+          setNotifiedHazardIds(prev => ({ ...prev, [h.id]: now }));
+          const roundedDist = Math.round(dist);
+          setActiveAlert({ hazard: h, distance: roundedDist });
+
+          // ブラウザ通知
+          if ("Notification" in window && Notification.permission === "granted") {
+            const catName = categoryNames[h.type] || 'きけん';
+            new Notification("⚠️ ちかくに きけんが あるよ！", {
+              body: `およそ${roundedDist}mさき: ${h.description} (${catName})`,
+              icon: '/favicon.svg'
+            });
+          }
+
+          // 音声 / 効果音
+          if (isAudioEnabled) {
+            playAlertSound();
+            const catName = categoryNames[h.type] || 'きけん';
+            speakAlertText(`きをつけて！ ちかくに ${catName} があるよ`);
+          }
+
+          break;
         }
-      );
-      return () => navigator.geolocation.clearWatch(watchId);
+      }
     }
-  }, []);
+  }, [userPos, hazards, isNotificationEnabled, alertDistance, isAudioEnabled, notifiedHazardIds]);
+
+  const requestNotificationPermission = async () => {
+    if (!("Notification" in window)) {
+      alert("お使いのブラウザは つうち機能に たいおうしていません。");
+      return;
+    }
+
+    let perm = Notification.permission;
+    if (perm === "default") {
+      perm = await Notification.requestPermission();
+    }
+
+    if (perm === "granted") {
+      setIsNotificationEnabled(true);
+      localStorage.setItem('notificationEnabled', 'true');
+      alert("つうちを オンに したよ！🔔");
+    } else {
+      alert("つうちの きょかが ありません。ブラウザの設定を かくにんしてね。");
+    }
+  };
 
   useEffect(() => {
     if (selectedHazardId && (!isMobile || activeTab === 'list')) {
@@ -181,14 +320,13 @@ function App() {
     const handleResize = () => {
       const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
-      if (!mobile) setActiveTab('map'); // Reset tab on desktop
+      if (!mobile) setActiveTab('map');
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   useEffect(() => {
-    // If home is set, use it. Otherwise try geolocation.
     if (homePos) {
       setMapCenter(homePos);
     } else if ("geolocation" in navigator) {
@@ -387,29 +525,267 @@ function App() {
             {!isMobile && <p style={{ margin: 0, fontSize: '0.8rem', opacity: 0.8 }}>まちの 安全を みんなで まもろう！</p>}
           </div>
         </div>
-        <button 
-          onClick={() => {
-            if (window.confirm('いつもの ばしょを かえる？🏠')) {
-              setIsSettingHome(true);
-              if (isMobile) setActiveTab('map');
-            }
-          }}
-          style={{
-            background: '#34495E',
-            color: 'white',
-            border: 'none',
-            borderRadius: '20px',
-            padding: isMobile ? '0.4rem 0.8rem' : '0.5rem 1rem',
-            cursor: 'pointer',
-            fontSize: isMobile ? '0.7rem' : '0.9rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.3rem'
-          }}
-        >
-          🏠 <span>ばしょ設定</span>
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0.3rem' : '0.6rem' }}>
+          <button 
+            onClick={() => setIsNotificationModalOpen(true)}
+            style={{
+              background: isNotificationEnabled ? '#E67E22' : '#7F8C8D',
+              color: 'white',
+              border: 'none',
+              borderRadius: '20px',
+              padding: isMobile ? '0.4rem 0.8rem' : '0.5rem 1rem',
+              cursor: 'pointer',
+              fontSize: isMobile ? '0.7rem' : '0.9rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.3rem',
+              fontWeight: 'bold',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+            }}
+          >
+            🔔 <span>{isNotificationEnabled ? 'つうち ON' : 'つうち OFF'}</span>
+          </button>
+          <button 
+            onClick={() => {
+              if (window.confirm('いつもの ばしょを かえる？🏠')) {
+                setIsSettingHome(true);
+                if (isMobile) setActiveTab('map');
+              }
+            }}
+            style={{
+              background: '#34495E',
+              color: 'white',
+              border: 'none',
+              borderRadius: '20px',
+              padding: isMobile ? '0.4rem 0.8rem' : '0.5rem 1rem',
+              cursor: 'pointer',
+              fontSize: isMobile ? '0.7rem' : '0.9rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.3rem'
+            }}
+          >
+            🏠 <span>ばしょ設定</span>
+          </button>
+        </div>
       </header>
+      
+      {/* 近接アラートバナー */}
+      {activeAlert && (
+        <div className="hazard-alert-banner">
+          <div className="hazard-alert-header">
+            <div className="hazard-alert-badge">
+              ⚠️ 近接アラート ({activeAlert.distance}mさき)
+            </div>
+            <button 
+              className="hazard-alert-close" 
+              onClick={() => setActiveAlert(null)}
+              title="とじる"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="hazard-alert-body">
+            <div className="hazard-alert-title">
+              きをつけて！ ちかくに きけんが あるよ
+            </div>
+            <div>
+              <strong>{categoryNames[activeAlert.hazard.type] || 'きけん'}</strong>: {activeAlert.hazard.description}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 通知設定モーダル */}
+      {isNotificationModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsNotificationModalOpen(false)}>
+          <div className="modal-card" onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#2C3E50', fontWeight: 'bold' }}>🔔 つうち・おと の 設定</h3>
+              <button 
+                onClick={() => setIsNotificationModalOpen(false)}
+                style={{ background: 'none', border: 'none', fontSize: '1.4rem', cursor: 'pointer', color: '#7F8C8D' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* ブラウザ通知トグル */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#F8F9FA', padding: '12px', borderRadius: '12px' }}>
+                <div>
+                  <div style={{ fontWeight: 'bold', color: '#2C3E50' }}>📱 危険接近の通知</div>
+                  <div style={{ fontSize: '0.8rem', color: '#7F8C8D' }}>危険なばしょに 近づいたら つうちするよ</div>
+                </div>
+                <button
+                  onClick={() => {
+                    if (!isNotificationEnabled) {
+                      requestNotificationPermission();
+                    } else {
+                      setIsNotificationEnabled(false);
+                      localStorage.setItem('notificationEnabled', 'false');
+                    }
+                  }}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '20px',
+                    border: 'none',
+                    background: isNotificationEnabled ? '#2ECC71' : '#BDC3C7',
+                    color: 'white',
+                    fontWeight: 'bold',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {isNotificationEnabled ? 'ON' : 'OFF'}
+                </button>
+              </div>
+
+              {/* 音声/効果音トグル */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#F8F9FA', padding: '12px', borderRadius: '12px' }}>
+                <div>
+                  <div style={{ fontWeight: 'bold', color: '#2C3E50' }}>🔊 おと・こえ の お知らせ</div>
+                  <div style={{ fontSize: '0.8rem', color: '#7F8C8D' }}>音や声で きけんを おしえてくれるよ</div>
+                </div>
+                <button
+                  onClick={() => {
+                    const next = !isAudioEnabled;
+                    setIsAudioEnabled(next);
+                    localStorage.setItem('audioEnabled', String(next));
+                    if (next) playAlertSound();
+                  }}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '20px',
+                    border: 'none',
+                    background: isAudioEnabled ? '#3498DB' : '#BDC3C7',
+                    color: 'white',
+                    fontWeight: 'bold',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {isAudioEnabled ? 'ON' : 'OFF'}
+                </button>
+              </div>
+
+              {/* 通知距離設定 */}
+              <div style={{ background: '#F8F9FA', padding: '12px', borderRadius: '12px' }}>
+                <div style={{ fontWeight: 'bold', color: '#2C3E50', marginBottom: '8px' }}>📏 どのくらい 近づいたら つうちする？</div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {[50, 100, 200].map(dist => (
+                    <button
+                      key={dist}
+                      onClick={() => {
+                        setAlertDistance(dist);
+                        localStorage.setItem('alertDistance', String(dist));
+                      }}
+                      style={{
+                        flex: 1,
+                        padding: '8px 0',
+                        borderRadius: '10px',
+                        border: alertDistance === dist ? '2px solid #E67E22' : '1px solid #BDC3C7',
+                        background: alertDistance === dist ? '#FFEAA7' : 'white',
+                        color: alertDistance === dist ? '#D35400' : '#2C3E50',
+                        fontWeight: alertDistance === dist ? 'bold' : 'normal',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {dist}m
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 位置情報トラッキング設定 */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#F8F9FA', padding: '12px', borderRadius: '12px' }}>
+                <div>
+                  <div style={{ fontWeight: 'bold', color: '#2C3E50' }}>📍 位置情報のトラッキング</div>
+                  <div style={{ fontSize: '0.8rem', color: '#7F8C8D' }}>
+                    {isTracking ? `追跡中 (精度: およそ${accuracy ? Math.round(accuracy) : '?'}m)` : '停止中'}
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    if (isTracking) {
+                      stopTracking();
+                    } else {
+                      startTracking();
+                    }
+                  }}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '20px',
+                    border: 'none',
+                    background: isTracking ? '#2ECC71' : '#E74C3C',
+                    color: 'white',
+                    fontWeight: 'bold',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {isTracking ? '追跡 ON' : '追跡 OFF'}
+                </button>
+              </div>
+
+              {/* 移動ルート（軌跡）の表示切り替え・履歴クリア */}
+              <div style={{ background: '#F8F9FA', padding: '12px', borderRadius: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <div style={{ fontWeight: 'bold', color: '#2C3E50' }}>🗺️ あるいた ルートの表示</div>
+                  <button
+                    onClick={() => setShowHistoryPolyline(!showHistoryPolyline)}
+                    style={{
+                      padding: '4px 12px',
+                      borderRadius: '12px',
+                      border: '1px solid #BDC3C7',
+                      background: showHistoryPolyline ? '#EBF5FB' : 'white',
+                      color: showHistoryPolyline ? '#2980B9' : '#7F8C8D',
+                      fontWeight: 'bold',
+                      fontSize: '0.8rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {showHistoryPolyline ? '表示中' : '非表示'}
+                  </button>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.8rem', color: '#7F8C8D' }}>
+                  <span>きろく件数: {locationHistory.length} 件</span>
+                  {locationHistory.length > 0 && (
+                    <button
+                      onClick={clearHistory}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#E74C3C',
+                        cursor: 'pointer',
+                        textDecoration: 'underline',
+                        fontSize: '0.8rem'
+                      }}
+                    >
+                      リセットする
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setIsNotificationModalOpen(false)}
+              style={{
+                marginTop: '20px',
+                width: '100%',
+                padding: '12px',
+                background: '#3498DB',
+                color: 'white',
+                border: 'none',
+                borderRadius: '12px',
+                fontSize: '1rem',
+                fontWeight: 'bold',
+                cursor: 'pointer'
+              }}
+            >
+              OK (とじる)
+            </button>
+          </div>
+        </div>
+      )}
       
       {/* Home Selection Overlay (Welcome) */}
       {!homePos && !isSettingHome && (
@@ -524,9 +900,22 @@ function App() {
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             />
             <MapUpdater center={mapCenter} />
+            {showHistoryPolyline && locationHistory.length > 1 && (
+              <Polyline 
+                positions={locationHistory.map(p => [p.lat, p.lng] as [number, number])} 
+                pathOptions={{ color: '#2980B9', weight: 4, opacity: 0.7, dashArray: '6, 8' }} 
+              />
+            )}
             {userPos && (
               <Marker position={userPos} icon={getUserLocationIcon()}>
-                <Popup>🚶‍♂️ いまいるばしょ</Popup>
+                <Popup>
+                  <div style={{ textAlign: 'center' }}>
+                    <strong>🚶‍♂️ いまいるばしょ</strong><br/>
+                    <span style={{ fontSize: '0.8rem', color: '#7F8C8D' }}>
+                      測位精度: 約{accuracy ? Math.round(accuracy) : '?'}m
+                    </span>
+                  </div>
+                </Popup>
               </Marker>
             )}
             <LocateControl userPos={userPos} />

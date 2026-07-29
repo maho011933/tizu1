@@ -54,9 +54,9 @@ graph TD
 
 | タスク内容 | 優先度 | 進捗 | 備考 |
 | :--- | :---: | :---: | :--- |
-| バックグラウンドでの位置情報取得と位置情報トラッキングの状態管理 | 高 | 🔴 未着手 | Reactの状態管理（Context or Redux等）の設計 |
+| バックグラウンドでの位置情報取得と位置情報トラッキングの状態管理 | 高 | 🟢 完了 | LocationContext設計, VisibilityState連動, 移動軌跡(Polyline)可視化 |
 | PWA（Progressive Web App）化によるモバイル実機動作の対応 | 高 | 🔴 未着手 | Service Workerの設定とマニフェスト作成 |
-| 危険個所接近時のブラウザプッシュ通知 / 音声アラート機能の実装 | 高 | 🔴 未着手 | Notification APIとサウンドアセットの統合 |
+| 危険個所接近時のブラウザプッシュ通知 / 音声アラート機能の実装 | 高 | 🟢 完了 | Notification API, Web Audio, SpeechSynthesis統合完了 |
 | 現在地のアイコン表示（動的な移動アニメーションなど） | 中 | 🟡 進行中 | [App.tsx](file:///C:/Users/denshi36/Desktop/maho/frontend/src/App.tsx#L51-L58) の `getHomeIcon` 等と同期 |
 
 ---
