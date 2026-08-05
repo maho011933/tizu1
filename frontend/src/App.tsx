@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
+import './App.css';
 import L from 'leaflet';
 
 // Fix for default marker icons in React Leaflet
@@ -24,7 +25,7 @@ const MapUpdater = ({ center }: { center: [number, number] }) => {
   return null;
 };
 
-const getMarkerIcon = (type: string, isMine: boolean = false) => {
+const getMarkerIcon = (type: string, isMine: boolean = false, level: number = 2) => {
   const colors: Record<string, string> = {
     Traffic: '#E74C3C', // 赤
     Crime: '#3498DB',   // 水色
@@ -32,19 +33,32 @@ const getMarkerIcon = (type: string, isMine: boolean = false) => {
     Lighting: '#F1C40F', // 黄色
     Other: '#9B59B6'     // 紫
   };
+  const emojis: Record<string, string> = {
+    Traffic: '🚗',
+    Crime: '👮',
+    Disaster: '🌊',
+    Lighting: '🌙',
+    Other: '🐾'
+  };
+
   const color = colors[type] || colors.Other;
-  const borderColor = isMine ? '#F1C40F' : 'white'; // 自分の投稿は金色の枠
+  const emoji = emojis[type] || emojis.Other;
+  const borderColor = isMine ? '#F1C40F' : 'white';
+
+  const size = 22 + (level * 6);
+  const fontSize = 10 + (level * 4);
+  const animationClass = level >= 5 ? 'alert-marker' : (level === 4 ? 'pulse-marker' : '');
 
   return L.divIcon({
     className: 'custom-icon',
     html: `
-      <div style="position: relative;">
-        <div style="background-color: ${color}; width: 28px; height: 28px; border-radius: 50%; border: 4px solid ${borderColor}; box-shadow: 0 3px 8px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-size: 14px;"></div>
-        ${isMine ? '<div style="position: absolute; top: -15px; left: 50%; transform: translateX(-50%); background: #F1C40F; color: #2C3E50; font-size: 10px; font-weight: bold; padding: 1px 4px; border-radius: 4px; white-space: nowrap; border: 1px solid white;">じぶん</div>' : ''}
+      <div style="position: relative; display: flex; align-items: center; justify-content: center;">
+        <div class="${animationClass}" style="background-color: ${color}; width: ${size}px; height: ${size}px; border-radius: 50%; border: 3px solid ${borderColor}; box-shadow: 0 3px 8px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-size: ${fontSize}px;">${emoji}</div>
+        ${isMine ? '<div style="position: absolute; top: -18px; left: 50%; transform: translateX(-50%); background: #F1C40F; color: #2C3E50; font-size: 10px; font-weight: bold; padding: 1px 4px; border-radius: 4px; white-space: nowrap; border: 1px solid white;"><ruby>自分<rt>じぶん</rt></ruby>の <ruby>報告<rt>ほうこく</rt></ruby></div>' : ''}
       </div>
     `,
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
   });
 };
 
@@ -68,6 +82,7 @@ interface Hazard {
   lat: number;
   lng: number;
   type: string;
+  level?: number;
   description: string;
   imageUrl?: string | null;
   comments?: Comment[];
@@ -160,7 +175,7 @@ function App() {
 
     return newHazardPos ? (
       <Marker position={newHazardPos} icon={getMarkerIcon('Other')}>
-        <Popup>ここにきめる！📍</Popup>
+        <Popup>ここに <ruby>決<rt>き</rt></ruby>める！📍</Popup>
       </Marker>
     ) : null;
   };
@@ -190,7 +205,7 @@ function App() {
     e.preventDefault();
     if (!newHazardPos) {
       if (isMobile) setActiveTab('map');
-      return alert('ちずを おして ばしょを えらんでね！');
+      return alert('地図を ぽちっと 押して 場所を 選んでね！📍');
     }
 
     const formData = new FormData();
@@ -273,12 +288,20 @@ function App() {
       });
   };
 
-  const typeLabels: Record<string, string> = {
-    Traffic: 'くるま・こうつう 🚗',
-    Crime: 'ふしんしゃ・ぼうはん 👮',
-    Disaster: 'じしん・かじ 🌊',
-    Lighting: 'くらみち・でんき 🌙',
-    Other: 'そのほか 🐾'
+  const typeLabels: Record<string, JSX.Element> = {
+    Traffic: <><ruby>車<rt>くるま</rt></ruby>・<ruby>交通<rt>こうつう</rt></ruby> 🚗</>,
+    Crime: <><ruby>不審者<rt>ふしんしゃ</rt></ruby>・<ruby>防犯<rt>ぼうはん</rt></ruby> 👮</>,
+    Disaster: <><ruby>地震<rt>じしん</rt></ruby>・<ruby>火災<rt>かさい</rt></ruby> 🌊</>,
+    Lighting: <><ruby>道<rt>みち</rt></ruby>が <ruby>暗<rt>くら</rt></ruby>い・<ruby>電気<rt>でんき</rt></ruby> 🌙</>,
+    Other: <>その他 🐾</>
+  };
+
+  const typeShortLabels: Record<string, string> = {
+    Traffic: '車・交通',
+    Crime: '不審者・防犯',
+    Disaster: '地震・火災',
+    Lighting: '暗い道',
+    Other: 'その他'
   };
 
   const typeColors: Record<string, { bg: string; text: string; shadow: string }> = {
@@ -313,8 +336,8 @@ function App() {
         <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0.5rem' : '1rem' }}>
           <span style={{ fontSize: isMobile ? '1.2rem' : '2rem' }}>🔰</span>
           <div>
-            <h1 style={{ margin: 0, fontSize: isMobile ? '1.1rem' : '1.5rem', fontWeight: 'bold' }}>みんなの安全マップ</h1>
-            {!isMobile && <p style={{ margin: 0, fontSize: '0.8rem', opacity: 0.8 }}>まちの 安全を みんなで まもろう！</p>}
+            <h1 style={{ margin: 0, fontSize: isMobile ? '1.1rem' : '1.5rem', fontWeight: 'bold' }}>みんなの<ruby>安全<rt>あんぜん</rt></ruby>マップ</h1>
+            {!isMobile && <p style={{ margin: 0, fontSize: '0.8rem', opacity: 0.8 }}><ruby>街<rt>まち</rt></ruby>の <ruby>安全<rt>あんぜん</rt></ruby>を みんなで <ruby>守<rt>まも</rt></ruby>ろう！</p>}
           </div>
         </div>
         <button 
@@ -337,7 +360,7 @@ function App() {
             gap: '0.3rem'
           }}
         >
-          🏠 <span>ばしょ設定</span>
+          🏠 <span><ruby>場所<rt>ばしょ</rt></ruby>を かえる</span>
         </button>
       </header>
       
@@ -365,9 +388,9 @@ function App() {
             boxShadow: '0 10px 30px rgba(0,0,0,0.5)'
           }}>
             <span style={{ fontSize: '4rem' }}>🏠</span>
-            <h2 style={{ margin: '1rem 0' }}>いつもの ばしょを きめよう！</h2>
+            <h2 style={{ margin: '1rem 0' }}>いつもの <ruby>場所<rt>ばしょ</rt></ruby>を <ruby>決<rt>き</rt></ruby>めよう！</h2>
             <p style={{ lineHeight: '1.6', marginBottom: '2rem' }}>
-              じぶんの おうちや、よくいく ばしょを ちずの まんなかに するよ。
+              <ruby>自分<rt>じぶん</rt></ruby>の おうちや、よく<ruby>行<rt>い</rt></ruby>く <ruby>場所<rt>ばしょ</rt></ruby>を <ruby>地図<rt>ちず</rt></ruby>の <ruby>真<rt>ま</rt></ruby>ん<ruby>中<rt>なか</rt></ruby>に するよ。
             </p>
             <button 
               onClick={() => {
@@ -386,7 +409,7 @@ function App() {
                 boxShadow: '0 4px 0 #C0392B'
               }}
             >
-              ちずで えらぶ！
+              <ruby>地図<rt>ちず</rt></ruby>で えらぶ！📍
             </button>
           </div>
         </div>
@@ -411,7 +434,7 @@ function App() {
           gap: '1rem',
           whiteSpace: 'nowrap'
         }}>
-          <span>🏠 ちずを ぽちっと おしてね！</span>
+          <span>🏠 <ruby>地図<rt>ちず</rt></ruby>を ぽちっと おしてね！</span>
           <button 
             onClick={() => setIsSettingHome(false)}
             style={{
@@ -424,7 +447,7 @@ function App() {
               fontSize: '0.8rem'
             }}
           >
-            キャンセル
+            やめる
           </button>
         </div>
       )}
@@ -456,14 +479,14 @@ function App() {
             <MapUpdater center={mapCenter} />
             {homePos && (
               <Marker position={homePos} icon={getHomeIcon()}>
-                <Popup>🏠 いつもの ばしょ</Popup>
+                <Popup>🏠 いつもの <ruby>場所<rt>ばしょ</rt></ruby></Popup>
               </Marker>
             )}
             {hazards.map(h => (
               <Marker 
                 key={h.id} 
                 position={[h.lat, h.lng]} 
-                icon={getMarkerIcon(h.type, myHazardIds.includes(h.id))}
+                icon={getMarkerIcon(h.type, myHazardIds.includes(h.id), h.level || 2)}
                 eventHandlers={{
                   click: () => {
                     setSelectedHazardId(h.id);
@@ -483,9 +506,9 @@ function App() {
                     
                     {/* Comments in Popup */}
                     <div style={{ textAlign: 'left', background: '#F8F9FA', padding: '0.5rem', borderRadius: '8px', marginBottom: '0.8rem' }}>
-                      <p style={{ fontSize: '0.8rem', fontWeight: 'bold', margin: '0 0 0.4rem 0', color: '#7F8C8D' }}>みんなのコメント</p>
+                      <p style={{ fontSize: '0.8rem', fontWeight: 'bold', margin: '0 0 0.4rem 0', color: '#7F8C8D' }}>みんなの コメント</p>
                       {(h.comments?.length || 0) === 0 ? (
-                        <p style={{ fontSize: '0.8rem', color: '#BDC3C7', margin: 0 }}>まだありません</p>
+                        <p style={{ fontSize: '0.8rem', color: '#BDC3C7', margin: 0 }}>まだ ありません</p>
                       ) : (
                         <div style={{ maxHeight: '60px', overflowY: 'auto' }}>
                           {h.comments?.map(c => (
@@ -510,7 +533,7 @@ function App() {
                             fontSize: '1rem'
                           }}
                         >
-                          いちらんで みる🚩
+                          <ruby>一覧<rt>いちらん</rt></ruby>で <ruby>見<rt>み</rt></ruby>る🚩
                         </button>
                       )}
                       
@@ -530,7 +553,7 @@ function App() {
                               fontSize: '1rem'
                             }}
                           >
-                            なおす📝
+                            <ruby>直<rt>なお</rt></ruby>す📝
                           </button>
                           <button 
                             onClick={() => handleResolve(h.id)}
@@ -546,11 +569,11 @@ function App() {
                               fontSize: '1rem'
                             }}
                           >
-                            完了✅
+                            <ruby>完了<rt>かんりょう</rt></ruby>✅
                           </button>
                         </div>
                       ) : (
-                        <p style={{ fontSize: '0.8rem', color: '#7F8C8D', margin: 0 }}>※ 投稿した人だけが なおせます</p>
+                        <p style={{ fontSize: '0.8rem', color: '#7F8C8D', margin: 0 }}>※ <ruby>報告<rt>ほうこく</rt></ruby>した <ruby>人<rt>ひと</rt></ruby>だけが 直<rt>なお</rt>せます</p>
                       )}
                     </div>
                   </div>
@@ -582,7 +605,7 @@ function App() {
                 gap: '0.5rem'
               }}
             >
-              <span>✍️</span> ここを ほうこくする！
+              <span>✍️</span> ここを <ruby>報告<rt>ほうこく</rt></ruby>する！
             </button>
           )}
         </div>
@@ -603,11 +626,11 @@ function App() {
           {/* Form Section */}
           <section style={{ display: (!isMobile || activeTab === 'form') ? 'block' : 'none' }}>
             <h2 style={{ color: '#2C3E50', fontSize: isMobile ? '1.2rem' : '1.3rem', borderLeft: `6px solid ${editingHazardId ? '#3498DB' : '#E74C3C'}`, paddingLeft: '0.8rem', marginBottom: '1rem' }}>
-              {editingHazardId ? 'ほうこくを なおす' : 'あぶないよ！をおしえる'}
+              {editingHazardId ? <><ruby>報告<rt>ほうこく</rt></ruby>を <ruby>直<rt>なお</rt></ruby>す</> : <>あぶないよ！を おしえる</>}
             </h2>
             <div style={{ backgroundColor: editingHazardId ? '#EBF5FB' : '#FFF4F4', padding: '0.8rem', borderRadius: '8px', marginBottom: '1rem', border: `1px solid ${editingHazardId ? '#D6EAF8' : '#FFDADA'}` }}>
               <p style={{ fontSize: isMobile ? '0.9rem' : '0.95rem', color: editingHazardId ? '#2980B9' : '#C0392B', margin: 0, fontWeight: 'bold', lineHeight: '1.4' }}>
-                {editingHazardId ? 'ないようを かえて、「なおす！」ボタンを おしてね。' : '① ちずで あぶない ばしょを ぽちっと えらんでね。② そのあと、「なにが あぶない？」を えらんでね。'}
+                {editingHazardId ? <><ruby>内容<rt>ないよう</rt></ruby>を 変<rt>か</rt>えて、「<ruby>直<rt>なお</rt></ruby>す！」ボタンを おしてね。</> : <>① <ruby>地図<rt>ちず</rt></ruby>で あぶない <ruby>場所<rt>ばしょ</rt></ruby>を ぽちっと えらんでね。② そのあと、「なにが あぶない？」を えらんでね。</>}
               </p>
             </div>
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -620,15 +643,15 @@ function App() {
                   border: '2px solid #BDC3C7',
                   fontSize: '1rem'
                 }}>
-                  <option value="Traffic">くるまに ちゅうい 🚗</option>
-                  <option value="Crime">ぼうはん・ふしんしゃ 👮</option>
-                  <option value="Disaster">じしん・かじ 🌊</option>
-                  <option value="Lighting">みちが くらい 🌙</option>
-                  <option value="Other">そのほか 🐾</option>
+                  <option value="Traffic">車（くるま）・交通（こうつう） 🚗</option>
+                  <option value="Crime">不審者（ふしんしゃ）・防犯（ぼうはん） 👮</option>
+                  <option value="Disaster">地震（じしん）・火災（かさい） 🌊</option>
+                  <option value="Lighting">道（みち）が 暗（くら）い・電気（でんき） 🌙</option>
+                  <option value="Other">その他（そのほか） 🐾</option>
                 </select>
               </div>
               <div>
-                <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '0.5rem', fontSize: '1rem' }}>しゃしん（かえるなら） 📸</label>
+                <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '0.5rem', fontSize: '1rem' }}><ruby>写真<rt>しゃしん</rt></ruby> 📸</label>
                 <input 
                   type="file" 
                   accept="image/*" 
@@ -637,7 +660,7 @@ function App() {
                 />
               </div>
               <div>
-                <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '0.5rem', fontSize: '1rem' }}>どんな かんじ？</label>
+                <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '0.5rem', fontSize: '1rem' }}>どんな <ruby>感<rt>かん</rt></ruby>じ？</label>
                 <textarea 
                   value={description} 
                   onChange={e => setDescription(e.target.value)} 
@@ -650,7 +673,7 @@ function App() {
                     fontSize: '1rem',
                     resize: 'none'
                   }}
-                  placeholder="れい：みちが くらい、くるまが おおい"
+                  placeholder="例：道が 暗い、車が 多い"
                   required
                 />
               </div>
@@ -684,7 +707,7 @@ function App() {
                   boxShadow: `0 4px 0 ${editingHazardId ? '#2980B9' : currentStyle.shadow}`,
                   transition: 'all 0.2s'
                 }}>
-                  {editingHazardId ? 'なおす！' : 'ほうこくする！'}
+                  {editingHazardId ? <><ruby>直<rt>なお</rt></ruby>す！</> : <><ruby>報告<rt>ほうこく</rt></ruby>する！</>}
                 </button>
               </div>
             </form>
@@ -694,9 +717,9 @@ function App() {
           
           {/* List Section */}
           <section style={{ display: (!isMobile || activeTab === 'list') ? 'block' : 'none' }}>
-            <h3 style={{ color: '#2C3E50', fontSize: isMobile ? '1.2rem' : '1.2rem', marginBottom: '1rem' }}>みんなの ほうこく 🚩</h3>
+            <h3 style={{ color: '#2C3E50', fontSize: isMobile ? '1.2rem' : '1.2rem', marginBottom: '1rem' }}>みんなの <ruby>報告<rt>ほうこく</rt></ruby> 🚩</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {hazards.length === 0 && <p style={{ color: '#999' }}>まだ ほうこくは ありません。</p>}
+              {hazards.length === 0 && <p style={{ color: '#999' }}>まだ <ruby>報告<rt>ほうこく</rt></ruby>は ありません。</p>}
               {hazards.map(h => (
                 <div 
                   key={h.id} 
@@ -718,7 +741,7 @@ function App() {
                       borderRadius: '4px', 
                       backgroundColor: '#2C3E50',
                       color: 'white'
-                    }}>{typeLabels[h.type]?.split(' ')[0] || h.type}</span>
+                    }}>{typeShortLabels[h.type] || h.type}</span>
                     {myHazardIds.includes(h.id) && (
                       <button 
                         onClick={() => handleStartEdit(h)}
@@ -732,7 +755,7 @@ function App() {
                           padding: '4px 8px'
                         }}
                       >
-                        なおす📝
+                        <ruby>直<rt>なお</rt></ruby>す📝
                       </button>
                     )}
                   </div>
@@ -754,7 +777,7 @@ function App() {
                     <div style={{ display: 'flex', gap: '0.3rem' }}>
                       <input 
                         type="text" 
-                        placeholder="ありがとう！など..."
+                        placeholder="ありがとう！ など..."
                         value={commentTexts[h.id] || ''}
                         onChange={e => setCommentTexts({...commentTexts, [h.id]: e.target.value})}
                         style={{ flex: 1, padding: '0.5rem', borderRadius: '8px', border: '1px solid #BDC3C7', fontSize: '0.9rem' }}
@@ -775,7 +798,7 @@ function App() {
                           opacity: commentTexts[h.id] ? 1 : 0.6
                         }}
                       >
-                        おく
+                        <ruby>送<rt>おく</rt></ruby>る
                       </button>
                     </div>
                   </div>
@@ -815,7 +838,7 @@ function App() {
             }}
           >
             <span style={{ fontSize: '1.5rem' }}>🗺️</span>
-            <span style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>ちず</span>
+            <span style={{ fontSize: '0.7rem', fontWeight: 'bold' }}><ruby>地図<rt>ちず</rt></ruby></span>
           </button>
           <button 
             onClick={() => setActiveTab('list')}
@@ -832,7 +855,7 @@ function App() {
             }}
           >
             <span style={{ fontSize: '1.5rem' }}>🚩</span>
-            <span style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>いちらん</span>
+            <span style={{ fontSize: '0.7rem', fontWeight: 'bold' }}><ruby>一覧<rt>いちらん</rt></ruby></span>
           </button>
           <button 
             onClick={() => setActiveTab('form')}
@@ -849,7 +872,7 @@ function App() {
             }}
           >
             <span style={{ fontSize: '1.5rem' }}>✍️</span>
-            <span style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>ほうこく</span>
+            <span style={{ fontSize: '0.7rem', fontWeight: 'bold' }}><ruby>報告<rt>ほうこく</rt></ruby></span>
           </button>
         </nav>
       )}
