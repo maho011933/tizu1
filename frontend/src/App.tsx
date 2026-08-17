@@ -80,6 +80,28 @@ interface Hazard {
   aiAdvice?: AiAdvice;
 }
 
+interface AiAssistPreview {
+  categoryJapanese: string;
+  dangerLevel: number;
+  suggestedDescription: string;
+  forKidsSummary: string;
+  keywords: string[];
+  reason: string;
+}
+
+interface AreaSummary {
+  summaryTitle: string;
+  forKidsSummary: string;
+  forAdultsSummary: string;
+  keyPoints: string[];
+}
+
+interface ChatMessage {
+  sender: 'user' | 'bot';
+  text: string;
+  adultText?: string;
+}
+
 function App() {
   const [hazards, setHazards] = useState<Hazard[]>([]);
   const [newHazardPos, setNewHazardPos] = useState<L.LatLng | null>(null);
@@ -88,6 +110,7 @@ function App() {
   const [description, setDescription] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [isAiAssisting, setIsAiAssisting] = useState(false);
+  const [aiAssistPreview, setAiAssistPreview] = useState<AiAssistPreview | null>(null);
   const [mapCenter, setMapCenter] = useState<[number, number]>([35.6895, 139.6917]);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [activeTab, setActiveTab] = useState<'map' | 'list' | 'form'>('map');
@@ -102,6 +125,22 @@ function App() {
   });
   const [commentTexts, setCommentTexts] = useState<Record<number, string>>({});
   const [selectedHazardId, setSelectedHazardId] = useState<number | null>(null);
+
+  // AI Area Summary Modal State
+  const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
+  const [isLoadingSummary, setIsLoadingSummary] = useState(false);
+  const [areaSummary, setAreaSummary] = useState<AreaSummary | null>(null);
+
+  // AI Safety Chat Modal State
+  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
+    {
+      sender: 'bot',
+      text: 'こんにちは！ ぼくは あんぜん博士だよ。まちの あんぜんや きけんについて なんでも きいてね！ 🎒'
+    }
+  ]);
+  const [chatInput, setChatInput] = useState('');
+  const [isChatSending, setIsChatSending] = useState(false);
 
   useEffect(() => {
     if (selectedHazardId && (!isMobile || activeTab === 'list')) {
@@ -179,6 +218,7 @@ function App() {
     setDescription(h.description);
     setNewHazardPos(new L.LatLng(h.lat, h.lng));
     setImageFile(null);
+    setAiAssistPreview(null);
     
     if (isMobile) {
       setActiveTab('form');
@@ -191,6 +231,7 @@ function App() {
     setDescription('');
     setNewHazardPos(null);
     setImageFile(null);
+    setAiAssistPreview(null);
     if (isMobile) setActiveTab('map');
   };
 
@@ -198,66 +239,75 @@ function App() {
     e.preventDefault();
     if (!newHazardPos) {
       if (isMobile) setActiveTab('map');
-      return alert('ちずを おして ばしょを えらんでね！');
+      return alert('ちずの うえで、あぶない ばしょを ぽちっと おしてね！📍');
     }
 
     const formData = new FormData();
+    formData.append('lat', newHazardPos.lat.toString());
+    formData.append('lng', newHazardPos.lng.toString());
     formData.append('type', type);
     formData.append('description', description);
-    
     if (imageFile) {
       formData.append('image', imageFile);
     }
 
     if (editingHazardId) {
-      // Update existing
-      const currentHazard = hazards.find(h => h.id === editingHazardId);
-      if (currentHazard && !imageFile && currentHazard.imageUrl) {
-        formData.append('imageUrl', currentHazard.imageUrl);
-      } else if (!imageFile) {
-        formData.append('imageUrl', 'null');
-      }
-
       fetch(`http://localhost:3001/api/hazards/${editingHazardId}`, {
         method: 'PUT',
         body: formData
       })
         .then(res => res.json())
-        .then(updatedHazard => {
-          setHazards(hazards.map(h => h.id === editingHazardId ? updatedHazard : h));
+        .then(updated => {
+          setHazards(hazards.map(h => h.id === editingHazardId ? updated : h));
           handleCancelEdit();
-          if (isMobile) setActiveTab('list');
+          alert('ほうこくを なおしたよ！✨');
+        })
+        .catch(err => {
+          console.error(err);
+          alert('しっぱいしちゃった... もういちど やってみてね。');
         });
     } else {
-      // Create new
-      formData.append('lat', newHazardPos.lat.toString());
-      formData.append('lng', newHazardPos.lng.toString());
       fetch('http://localhost:3001/api/hazards', {
         method: 'POST',
         body: formData
       })
         .then(res => res.json())
-        .then(addedHazard => {
-          setHazards([...hazards, addedHazard]);
-          const newIds = [...myHazardIds, addedHazard.id];
-          setMyHazardIds(newIds);
-          localStorage.setItem('myHazardIds', JSON.stringify(newIds));
-          setNewHazardPos(null);
+        .then(newHazard => {
+          setHazards([...hazards, newHazard]);
+          const newMyIds = [...myHazardIds, newHazard.id];
+          setMyHazardIds(newMyIds);
+          localStorage.setItem('myHazardIds', JSON.stringify(newMyIds));
           setDescription('');
+          setNewHazardPos(null);
           setImageFile(null);
-          if (isMobile) setActiveTab('list');
+          setAiAssistPreview(null);
+          if (isMobile) setActiveTab('map');
+          alert('おしえてくれて ありがとう！ ちずに のせたよ✨');
+        })
+        .catch(err => {
+          console.error(err);
+          alert('しっぱいしちゃった... もういちど やってみてね。');
         });
     }
   };
 
   const handleResolve = (id: number) => {
-    fetch(`http://localhost:3001/api/hazards/${id}`, {
-      method: 'DELETE'
-    })
-      .then(() => {
-        setHazards(hazards.filter(h => h.id !== id));
-        if (editingHazardId === id) handleCancelEdit();
-      });
+    if (window.confirm('あぶないのが なおったかな？ かんりょうに しますか？✨')) {
+      fetch(`http://localhost:3001/api/hazards/${id}`, {
+        method: 'DELETE'
+      })
+        .then(() => {
+          setHazards(hazards.filter(h => h.id !== id));
+          const newMyIds = myHazardIds.filter(myId => myId !== id);
+          setMyHazardIds(newMyIds);
+          localStorage.setItem('myHazardIds', JSON.stringify(newMyIds));
+          alert('かんりょうに したよ！ まちが 安全になったね🎉');
+        })
+        .catch(err => {
+          console.error(err);
+          alert('しっぱいしちゃった... もういちど やってみてね。');
+        });
+    }
   };
 
   const handlePostComment = (hazardId: number) => {
@@ -310,17 +360,89 @@ function App() {
           'Traffic': 'Traffic',
           'Crime': 'Crime',
           'Disaster': 'Disaster',
-          'Lighting': 'Lighting'
+          'Lighting': 'Lighting',
+          'Other': 'Other'
         };
         if (typeMap[data.suggestedType]) {
           setType(typeMap[data.suggestedType]);
         }
       }
+
+      setAiAssistPreview({
+        categoryJapanese: data.categoryJapanese || 'そのほか',
+        dangerLevel: data.dangerLevel || 3,
+        suggestedDescription: data.suggestedDescription || description,
+        forKidsSummary: data.forKidsSummary || 'きをつけて とおってね！',
+        keywords: data.keywords || [],
+        reason: data.reason || 'AI判定を行いました。'
+      });
     } catch (err) {
       console.error(err);
       alert('AIアシストに しっぱいしました');
     } finally {
       setIsAiAssisting(false);
+    }
+  };
+
+  const handleOpenAreaSummary = async () => {
+    setIsSummaryModalOpen(true);
+    setIsLoadingSummary(true);
+    try {
+      const res = await fetch('http://localhost:3001/api/ai/summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hazards })
+      });
+      const data = await res.json();
+      setAreaSummary(data);
+    } catch (err) {
+      console.error(err);
+      setAreaSummary({
+        summaryTitle: '地域あんぜんサマリー',
+        forKidsSummary: 'みんなで あんぜんに きをつけて あるこうね！',
+        forAdultsSummary: '周辺の危険箇所に留意し、見守りをお願いします。',
+        keyPoints: ['交通量の多い場所に注意', '暗い道は保護者と一緒に']
+      });
+    } finally {
+      setIsLoadingSummary(false);
+    }
+  };
+
+  const handleSendChatMessage = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!chatInput.trim() || isChatSending) return;
+
+    const userQ = chatInput.trim();
+    setChatInput('');
+    setChatMessages(prev => [...prev, { sender: 'user', text: userQ }]);
+    setIsChatSending(true);
+
+    try {
+      const res = await fetch('http://localhost:3001/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: userQ, hazards })
+      });
+      const data = await res.json();
+      setChatMessages(prev => [
+        ...prev,
+        {
+          sender: 'bot',
+          text: data.answerForKids || 'きをつけて とおろうね！',
+          adultText: data.answerForAdults
+        }
+      ]);
+    } catch (err) {
+      console.error(err);
+      setChatMessages(prev => [
+        ...prev,
+        {
+          sender: 'bot',
+          text: 'あぶないところには ちかづかないで、大人のひとと いっしょにあるこうね！'
+        }
+      ]);
+    } finally {
+      setIsChatSending(false);
     }
   };
 
@@ -336,8 +458,8 @@ function App() {
     Traffic: { bg: '#E74C3C', text: 'white', shadow: '#C0392B' },     // 赤
     Crime: { bg: '#3498DB', text: 'white', shadow: '#2980B9' },       // 水色
     Disaster: { bg: '#95A5A6', text: 'white', shadow: '#7F8C8D' },    // 灰色
-    Lighting: { bg: '#F1C40F', text: '#2C3E50', shadow: '#F39C12' },  // 黄色（文字は濃い色）
-    Other: { bg: '#9B59B6', text: 'white', shadow: '#8E44AD' }      // 紫（文字は白、影は濃い紫）
+    Lighting: { bg: '#F1C40F', text: '#2C3E50', shadow: '#F39C12' },  // 黄色
+    Other: { bg: '#9B59B6', text: 'white', shadow: '#8E44AD' }      // 紫
   };
 
   const currentStyle = typeColors[type] || typeColors.Other;
@@ -351,8 +473,9 @@ function App() {
       backgroundColor: '#F0F4F8',
       position: 'relative'
     }}>
+      {/* Header */}
       <header style={{ 
-        padding: isMobile ? '0.6rem 1rem' : '1rem 2rem', 
+        padding: isMobile ? '0.6rem 1rem' : '0.8rem 1.5rem', 
         background: '#2C3E50', 
         color: 'white',
         display: 'flex',
@@ -362,34 +485,59 @@ function App() {
         zIndex: 1000
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0.5rem' : '1rem' }}>
-          <span style={{ fontSize: isMobile ? '1.2rem' : '2rem' }}>🔰</span>
+          <span style={{ fontSize: isMobile ? '1.3rem' : '2rem' }}>🔰</span>
           <div>
-            <h1 style={{ margin: 0, fontSize: isMobile ? '1.1rem' : '1.5rem', fontWeight: 'bold' }}>みんなの安全マップ</h1>
+            <h1 style={{ margin: 0, fontSize: isMobile ? '1.1rem' : '1.4rem', fontWeight: 'bold' }}>みんなの安全マップ</h1>
             {!isMobile && <p style={{ margin: 0, fontSize: '0.8rem', opacity: 0.8 }}>まちの 安全を みんなで まもろう！</p>}
           </div>
         </div>
-        <button 
-          onClick={() => {
-            if (window.confirm('いつもの ばしょを かえる？🏠')) {
-              setIsSettingHome(true);
-              if (isMobile) setActiveTab('map');
-            }
-          }}
-          style={{
-            background: '#34495E',
-            color: 'white',
-            border: 'none',
-            borderRadius: '20px',
-            padding: isMobile ? '0.4rem 0.8rem' : '0.5rem 1rem',
-            cursor: 'pointer',
-            fontSize: isMobile ? '0.7rem' : '0.9rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.3rem'
-          }}
-        >
-          🏠 <span>ばしょ設定</span>
-        </button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          {/* Area Summary Button */}
+          <button
+            onClick={handleOpenAreaSummary}
+            style={{
+              background: 'linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '20px',
+              padding: isMobile ? '0.4rem 0.7rem' : '0.5rem 1rem',
+              cursor: 'pointer',
+              fontSize: isMobile ? '0.75rem' : '0.9rem',
+              fontWeight: 'bold',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.3rem',
+              boxShadow: '0 2px 8px rgba(255,107,107,0.4)'
+            }}
+          >
+            ✨ <span>地域のまとめ</span>
+          </button>
+
+          {/* Set Home Button */}
+          <button 
+            onClick={() => {
+              if (window.confirm('いつもの ばしょを かえる？🏠')) {
+                setIsSettingHome(true);
+                if (isMobile) setActiveTab('map');
+              }
+            }}
+            style={{
+              background: '#34495E',
+              color: 'white',
+              border: 'none',
+              borderRadius: '20px',
+              padding: isMobile ? '0.4rem 0.7rem' : '0.5rem 1rem',
+              cursor: 'pointer',
+              fontSize: isMobile ? '0.75rem' : '0.9rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.3rem'
+            }}
+          >
+            🏠 <span>ばしょ設定</span>
+          </button>
+        </div>
       </header>
       
       {/* Home Selection Overlay (Welcome) */}
@@ -623,6 +771,32 @@ function App() {
             <LocationPicker />
           </MapContainer>
           
+          {/* Floating AI Chat Button */}
+          <button
+            onClick={() => setIsChatModalOpen(true)}
+            style={{
+              position: 'absolute',
+              bottom: isMobile ? '80px' : '20px',
+              right: '20px',
+              zIndex: 1000,
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '30px',
+              padding: '0.7rem 1.2rem',
+              fontSize: '0.95rem',
+              fontWeight: 'bold',
+              boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem'
+            }}
+          >
+            <span style={{ fontSize: '1.2rem' }}>🤖</span>
+            <span>あんぜん博士にきく</span>
+          </button>
+
           {isMobile && newHazardPos && activeTab === 'map' && (
             <button 
               onClick={() => setActiveTab('form')}
@@ -661,7 +835,7 @@ function App() {
           display: isMobile ? (activeTab === 'map' ? 'none' : 'flex') : 'flex',
           flexDirection: 'column',
           gap: isMobile ? '1rem' : '1.5rem',
-          paddingBottom: isMobile ? '80px' : '1.5rem' // Nav bar padding
+          paddingBottom: isMobile ? '80px' : '1.5rem'
         }}>
           {/* Form Section */}
           <section style={{ display: (!isMobile || activeTab === 'form') ? 'block' : 'none' }}>
@@ -716,6 +890,8 @@ function App() {
                   placeholder="れい：みちが くらい、くるまが おおい"
                   required
                 />
+                
+                {/* AI Assist Trigger Button */}
                 <button
                   type="button"
                   onClick={handleAiAssist}
@@ -739,9 +915,56 @@ function App() {
                     opacity: isAiAssisting ? 0.7 : 1
                   }}
                 >
-                  <span>🤖</span> {isAiAssisting ? 'AIが かんがえちゅう...' : 'AIにおまかせ！ カテゴリ・せつめい自動アシスト'}
+                  <span>🤖</span> {isAiAssisting ? 'AIが かんがえちゅう...' : 'AIにおまかせ！ カテゴリ・危険度・せつめい自動アシスト'}
                 </button>
+
+                {/* AI Assist Result Preview Card */}
+                {aiAssistPreview && (
+                  <div style={{
+                    marginTop: '0.8rem',
+                    padding: '0.8rem',
+                    borderRadius: '8px',
+                    background: '#F5F3FF',
+                    border: '1.5px solid #DDD6FE',
+                    animation: 'fadeIn 0.3s ease-in-out'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#6D28D9', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                        <span>✨</span> AIの分析結果
+                      </span>
+                      <span style={{
+                        fontSize: '0.75rem',
+                        fontWeight: 'bold',
+                        padding: '2px 8px',
+                        borderRadius: '12px',
+                        backgroundColor: aiAssistPreview.dangerLevel >= 4 ? '#FEE2E2' : aiAssistPreview.dangerLevel === 3 ? '#FEF3C7' : '#DCFCE7',
+                        color: aiAssistPreview.dangerLevel >= 4 ? '#B91C1C' : aiAssistPreview.dangerLevel === 3 ? '#B45309' : '#15803D'
+                      }}>
+                        きけん度: {'⭐'.repeat(aiAssistPreview.dangerLevel)} (Lv.{aiAssistPreview.dangerLevel})
+                      </span>
+                    </div>
+
+                    <div style={{ fontSize: '0.85rem', color: '#4C1D95', marginBottom: '0.4rem', lineHeight: '1.4' }}>
+                      <strong>👶 こども向け:</strong> {aiAssistPreview.forKidsSummary}
+                    </div>
+
+                    <div style={{ fontSize: '0.75rem', color: '#6B7280', marginBottom: '0.4rem' }}>
+                      <strong>判定の理由:</strong> {aiAssistPreview.reason}
+                    </div>
+
+                    {aiAssistPreview.keywords.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
+                        {aiAssistPreview.keywords.map((kw, i) => (
+                          <span key={i} style={{ fontSize: '0.7rem', background: '#EDE9FE', color: '#5B21B6', padding: '1px 6px', borderRadius: '4px' }}>
+                            #{kw}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
+
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 {editingHazardId && (
                   <button type="button" onClick={handleCancelEdit} style={{ 
@@ -751,7 +974,7 @@ function App() {
                     color: 'white', 
                     border: 'none', 
                     borderRadius: '8px', 
-                    cursor: 'pointer',
+                    cursor: 'pointer', 
                     fontWeight: 'bold',
                     fontSize: '1.2rem',
                     boxShadow: '0 4px 0 #7F8C8D',
@@ -766,7 +989,7 @@ function App() {
                   color: 'white', 
                   border: 'none', 
                   borderRadius: '8px', 
-                  cursor: 'pointer',
+                  cursor: 'pointer', 
                   fontWeight: 'bold',
                   fontSize: '1.2rem',
                   boxShadow: `0 4px 0 ${editingHazardId ? '#2980B9' : currentStyle.shadow}`,
@@ -890,6 +1113,240 @@ function App() {
           </section>
         </aside>
       </div>
+
+      {/* Area Summary Modal */}
+      {isSummaryModalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          zIndex: 3000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '1rem'
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '16px',
+            maxWidth: '500px',
+            width: '100%',
+            padding: '1.5rem',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
+            maxHeight: '85vh',
+            overflowY: 'auto'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ margin: 0, color: '#2C3E50', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.2rem' }}>
+                <span>✨</span> 地域のあんぜんまとめ
+              </h3>
+              <button
+                onClick={() => setIsSummaryModalOpen(false)}
+                style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#95A5A6' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {isLoadingSummary ? (
+              <div style={{ textAlign: 'center', padding: '2rem', color: '#7F8C8D' }}>
+                <span style={{ fontSize: '2rem', display: 'block', marginBottom: '0.5rem' }}>🤖</span>
+                <p>あんぜん博士が まちのようすを まとめています...</p>
+              </div>
+            ) : areaSummary ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ background: '#FFF8E1', padding: '1rem', borderRadius: '10px', border: '1px solid #FFE082' }}>
+                  <h4 style={{ margin: '0 0 0.5rem 0', color: '#D97706', fontSize: '1rem' }}>
+                    {areaSummary.summaryTitle}
+                  </h4>
+                  <p style={{ margin: 0, color: '#92400E', fontSize: '0.95rem', lineHeight: '1.5' }}>
+                    <strong>👶 こどもたちへ:</strong><br />
+                    {areaSummary.forKidsSummary}
+                  </p>
+                </div>
+
+                <div style={{ background: '#F0F9FF', padding: '1rem', borderRadius: '10px', border: '1px solid #BAE6FD' }}>
+                  <p style={{ margin: 0, color: '#0369A1', fontSize: '0.9rem', lineHeight: '1.4' }}>
+                    <strong>👥 保護者・地域の皆様へ:</strong><br />
+                    {areaSummary.forAdultsSummary}
+                  </p>
+                </div>
+
+                <div>
+                  <h5 style={{ margin: '0 0 0.5rem 0', color: '#2C3E50', fontSize: '0.9rem' }}>🎯 ちゅうもくポイント</h5>
+                  <ul style={{ margin: 0, paddingLeft: '1.2rem', color: '#4B5563', fontSize: '0.85rem' }}>
+                    {areaSummary.keyPoints.map((pt, i) => (
+                      <li key={i} style={{ marginBottom: '0.3rem' }}>{pt}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            ) : null}
+
+            <button
+              onClick={() => setIsSummaryModalOpen(false)}
+              style={{
+                marginTop: '1.2rem',
+                width: '100%',
+                padding: '0.8rem',
+                background: '#2C3E50',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '1rem',
+                fontWeight: 'bold',
+                cursor: 'pointer'
+              }}
+            >
+              とじる
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Safety Chat Modal */}
+      {isChatModalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          zIndex: 3000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '1rem'
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '16px',
+            maxWidth: '450px',
+            width: '100%',
+            height: '520px',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
+            overflow: 'hidden'
+          }}>
+            {/* Chat Header */}
+            <div style={{
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              color: 'white',
+              padding: '1rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ fontSize: '1.5rem' }}>🤖</span>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '1rem' }}>あんぜん博士にしつもん</h4>
+                  <p style={{ margin: 0, fontSize: '0.75rem', opacity: 0.8 }}>AI安全相談コーナー</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsChatModalOpen(false)}
+                style={{ background: 'none', border: 'none', fontSize: '1.3rem', color: 'white', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Chat Body */}
+            <div style={{
+              flex: 1,
+              padding: '1rem',
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.8rem',
+              backgroundColor: '#F8FAFC'
+            }}>
+              {chatMessages.map((msg, i) => (
+                <div
+                  key={i}
+                  style={{
+                    alignSelf: msg.sender === 'user' ? 'flex-end' : 'flex-start',
+                    maxWidth: '85%'
+                  }}
+                >
+                  <div style={{
+                    padding: '0.7rem 1rem',
+                    borderRadius: '14px',
+                    background: msg.sender === 'user' ? '#3B82F6' : 'white',
+                    color: msg.sender === 'user' ? 'white' : '#1E293B',
+                    boxShadow: '0 2px 5px rgba(0,0,0,0.05)',
+                    fontSize: '0.9rem',
+                    lineHeight: '1.4',
+                    borderBottomRightRadius: msg.sender === 'user' ? '2px' : '14px',
+                    borderBottomLeftRadius: msg.sender === 'bot' ? '2px' : '14px',
+                  }}>
+                    {msg.text}
+                  </div>
+                  {msg.adultText && (
+                    <div style={{
+                      marginTop: '0.3rem',
+                      padding: '0.4rem 0.6rem',
+                      background: '#F1F5F9',
+                      borderRadius: '8px',
+                      fontSize: '0.75rem',
+                      color: '#64748B',
+                      lineHeight: '1.3'
+                    }}>
+                      👥 <strong>おとな向け:</strong> {msg.adultText}
+                    </div>
+                  )}
+                </div>
+              ))}
+              {isChatSending && (
+                <div style={{ alignSelf: 'flex-start', color: '#94A3B8', fontSize: '0.85rem' }}>
+                  あんぜん博士が 考え中... 🤔
+                </div>
+              )}
+            </div>
+
+            {/* Chat Input */}
+            <form onSubmit={handleSendChatMessage} style={{
+              padding: '0.8rem',
+              display: 'flex',
+              gap: '0.5rem',
+              background: 'white',
+              borderTop: '1px solid #E2E8F0'
+            }}>
+              <input
+                type="text"
+                value={chatInput}
+                onChange={e => setChatInput(e.target.value)}
+                placeholder="例: 暗い道を通るときはどうする？"
+                style={{
+                  flex: 1,
+                  padding: '0.6rem 0.8rem',
+                  borderRadius: '20px',
+                  border: '1px solid #CBD5E1',
+                  fontSize: '0.9rem',
+                  outline: 'none'
+                }}
+              />
+              <button
+                type="submit"
+                disabled={!chatInput.trim() || isChatSending}
+                style={{
+                  background: '#3B82F6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '20px',
+                  padding: '0.6rem 1rem',
+                  fontWeight: 'bold',
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  opacity: chatInput.trim() && !isChatSending ? 1 : 0.5
+                }}
+              >
+                そうしん
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Mobile Bottom Navigation */}
       {isMobile && (

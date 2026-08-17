@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, Type } from '@google/genai';
 import dotenv from 'dotenv';
 import fs from 'fs';
 
@@ -24,10 +24,13 @@ export interface SafetyAdviceResult {
 }
 
 export interface AssistInputResult {
-  suggestedType: string;
+  suggestedType: 'Traffic' | 'Crime' | 'Disaster' | 'Lighting' | 'Other' | string;
+  categoryJapanese: string;
   dangerLevel: number;
   suggestedDescription: string;
+  forKidsSummary: string;
   detectedHazardsFromImage?: string[];
+  keywords: string[];
   reason: string;
   isMock: boolean;
 }
@@ -39,6 +42,65 @@ export interface AreaSummaryResult {
   keyPoints: string[];
   isMock: boolean;
 }
+
+// 構造化出力用スキーマ定義: 投稿アシスト・危険度解析
+const hazardAssistSchema = {
+  type: Type.OBJECT,
+  properties: {
+    category: {
+      type: Type.STRING,
+      enum: ['Traffic', 'Crime', 'Disaster', 'Lighting', 'Other'],
+      description: '最も適切なハザードカテゴリ (Traffic: 交通・工事, Crime: 不審者・防犯, Disaster: 災害・急坂・段差, Lighting: 暗い道・街灯, Other: その他)',
+    },
+    categoryJapanese: {
+      type: Type.STRING,
+      description: 'カテゴリの日本語ラベル（例: くるま・こうつう、ふしんしゃ・ぼうはん、くらみち・でんき、じしん・かじ・きけん、そのほか）',
+    },
+    dangerLevel: {
+      type: Type.INTEGER,
+      description: '危険度レベル（1:軽微 〜 5:極めて危険）',
+    },
+    suggestedDescription: {
+      type: Type.STRING,
+      description: '曖昧な投稿を整理・要約した分かりやすい状況説明文（50〜100文字）',
+    },
+    forKidsSummary: {
+      type: Type.STRING,
+      description: '子供向けのアドバイス・注意点（ひらがな中心、やさしい口調、30〜60文字）',
+    },
+    keywords: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: '投稿から抽出された主要な危険キーワード（2〜4個）',
+    },
+    detectedHazardsFromImage: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: '画像が提供された場合に検出された具体的な危険要素（画像がない場合は空配列）',
+    },
+    reason: {
+      type: Type.STRING,
+      description: 'カテゴリおよび危険度レベルを判定した根拠（30〜80文字）',
+    },
+  },
+  required: ['category', 'categoryJapanese', 'dangerLevel', 'suggestedDescription', 'forKidsSummary', 'keywords', 'reason'],
+};
+
+// 構造化出力用スキーマ定義: 安全アドバイス生成
+const safetyAdviceSchema = {
+  type: Type.OBJECT,
+  properties: {
+    forKids: {
+      type: Type.STRING,
+      description: '子供向けのひらがな中心の安全アドバイス（40〜80文字）',
+    },
+    forAdults: {
+      type: Type.STRING,
+      description: '保護者・地域大人向けの具体的な注意点（60〜120文字）',
+    },
+  },
+  required: ['forKids', 'forAdults'],
+};
 
 /**
  * 危険場所の情報から、子供向け・保護者向けのアドバイスを生成する
@@ -57,12 +119,12 @@ export async function generateSafetyAdvice(
 
   try {
     const prompt = `
-あなたは子供たちの安全を守るキャラクター「あんぜん博士」です。
-以下の危険場所の報告について、2つの視点からアドバイスを作成してください。
+あなたは子供たちの安全を守る地域安全キャラクター「あんぜん博士」です。
+以下の危険場所の報告について、子供と大人の2つの視点から的確で温かいアドバイスを作成してください。
 
 1. **子供向けアドバイス (forKids)**:
-   - ひらがなメイン（漢字は小学1年生レベルのみ、わかりやすく）
-   - 親しみやすく優しく教える口調（例: 「〜しようね！」「〜にきをつけてね！」）
+   - ひらがなメイン（漢字は小学1年生レベルのみ）
+   - 優しく教える口調（例: 「〜しようね！」「〜にきをつけてね！」）
    - 40〜80文字程度
 
 2. **保護者・地域大人向けアドバイス (forAdults)**:
@@ -72,19 +134,15 @@ export async function generateSafetyAdvice(
 【危険情報】
 - カテゴリ: ${type}
 - 詳しい説明: ${description}
-
-出力形式は必ず以下のJSON形式のみで返してください (Markdown記法は含めないでください):
-{
-  "forKids": "...",
-  "forAdults": "..."
-}
 `;
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: prompt,
       config: {
-        responseMimeType: 'application/json'
+        responseMimeType: 'application/json',
+        responseSchema: safetyAdviceSchema,
+        temperature: 0.3,
       }
     });
 
@@ -106,7 +164,8 @@ export async function generateSafetyAdvice(
 }
 
 /**
- * ユーザーの簡易入力（テキストおよび添付画像）から投稿内容を補完・マルチモーダル解析する
+ * ユーザーの簡易・曖昧な入力テキスト（および添付画像）から
+ * 「カテゴリ」「危険度(1〜5)」「状況要約」「キーワード」「子供向けアドバイス」を高精度抽出する
  */
 export async function assistHazardInput(
   userText: string,
@@ -114,9 +173,12 @@ export async function assistHazardInput(
 ): Promise<AssistInputResult> {
   if (!ai) {
     return {
-      suggestedType: 'その他',
+      suggestedType: 'Other',
+      categoryJapanese: 'そのほか',
       dangerLevel: 3,
       suggestedDescription: userText || '危険な場所があります。気をつけて通りましょう。',
+      forKidsSummary: 'あぶない ばしょが あるよ。きをつけて とおってね！',
+      keywords: ['注意'],
       reason: 'Gemini APIキーが未設定のため、初期値を提供しています。',
       isMock: true
     };
@@ -126,20 +188,54 @@ export async function assistHazardInput(
     const contents: any[] = [];
 
     let promptText = `
-あなたは地域の安全マップ投稿アシスタントです。
-ユーザーの入力テキスト${imagePath ? 'および添付画像' : ''}を分析し、以下の情報をJSON形式で返してください。
+あなたは地域安全マップの投稿解析アシスタントです。
+ユーザーから寄せられた曖昧・断片的な投稿テキスト${imagePath ? 'および添付写真' : ''}を分析し、
+正確な「カテゴリ」「危険度レベル」「状況要約」「子供向けアドバイス」「キーワード」「判定理由」をJSON形式で抽出してください。
 
-利用可能なカテゴリ一覧:
-- 工事中
-- 不審者
-- 事故多発
-- 暗い道
-- 急な坂・階段
-- その他
+【利用可能なカテゴリ】
+- "Traffic" : くるま・こうつう（車・バイクのスピード超過、見通しの悪い交差点、歩道なし、道路工事、事故多発）
+- "Crime" : ふしんしゃ・ぼうはん（不審者、声かけ、つきまとい、痴漢、のぞき、危険な集まり）
+- "Lighting" : くらみち・でんき（街灯切れ、極端に暗い夜道、死角が多い路地）
+- "Disaster" : じしん・かじ・きけん（崖崩れ、冠水、倒木、道路の陥没、壊れかけたブロック塀、急な坂・階段）
+- "Other" : そのほか（スズメバチ・カラス・野良犬、悪臭、ゴミの散乱など）
 
-危険度レベル (dangerLevel): 1(軽微) 〜 5(非常に危険)
+【危険度判定基準 (dangerLevel: 1〜5)】
+- レベル 5 (極めて危険): 直ちに生命や身体に重大な危険がある（例: 不審者によるつきまとい・声かけ、大きな道路陥没、崩落の危険）
+- レベル 4 (危険): 事故や被害のリスクが高い（例: 交通量の多い見通しの悪い丁字路、完全に真っ暗で逃げ場のない小道）
+- レベル 3 (注意): 日常的に注意が必要（例: 工事で歩道が塞がれている、街灯が一部切れている、急な坂道や段差）
+- レベル 2 (やや注意): 軽微な危険（例: 雨の日に滑りやすいマンホール、少し狭い路地）
+- レベル 1 (低危険度): 念のための情報共有（例: 見通しは悪くないが注意喚起したい場所）
 
-ユーザー入力テキスト: "${userText || '（入力なし）'}"
+【Few-Shot 学習例】
+入力: "昨日夜ここ通ったら街灯消えてて真っ暗で変な男の人がずっと立っててマジで怖かった"
+出力:
+{
+  "category": "Crime",
+  "categoryJapanese": "ふしんしゃ・ぼうはん 👮",
+  "dangerLevel": 4,
+  "suggestedDescription": "夜間に街灯が消えており視界が悪く、不審者が長時間滞留していたとの目撃情報があります。",
+  "forKidsSummary": "よるは まっくらで あぶないよ。ひとりであるかず、ちがう みちを とおろう！",
+  "keywords": ["街灯切れ", "暗い道", "不審者目撃"],
+  "detectedHazardsFromImage": [],
+  "reason": "不審者の目撃と街灯消灯による暗闇が重複しており、防犯上の危険性が高いためCrime・危険度4と判定。"
+}
+
+入力: "水道工事やってて通学路なのに歩道歩けない"
+出力:
+{
+  "category": "Traffic",
+  "categoryJapanese": "くるま・こうつう 🚗",
+  "dangerLevel": 3,
+  "suggestedDescription": "水道工事のため歩道が封鎖されており、車道側を通行する必要があります。車の往来に注意してください。",
+  "forKidsSummary": "こうじで みちが せまいよ。くるまが きていないか よく みて あるこう！",
+  "keywords": ["水道工事", "歩道封鎖", "通学路"],
+  "detectedHazardsFromImage": [],
+  "reason": "通学路で歩行者が車道に出る必要があり、交通危険が高まるためTraffic・危険度3と判定。"
+}
+
+---
+【分析対象のユーザー入力】
+テキスト: "${userText || '（テキスト入力なし・写真から状況を判定してください）'}"
 `;
 
     if (imagePath && fs.existsSync(imagePath)) {
@@ -154,20 +250,8 @@ export async function assistHazardInput(
           mimeType: mimeType
         }
       });
-      promptText += '\n※添付画像からも危険物や状況（工事フェンス、街灯のなさ、見通しの悪い交差点等）を自動分析してください。';
+      promptText += '\n※添付写真も視覚的に精査し、道路状況、工事用具、照明設備、障害物などの危険要素を detectedHazardsFromImage に抽出し、カテゴリと危険度判定に反映してください。';
     }
-
-    promptText += `
-
-出力形式は必ず以下のJSON形式のみで返してください:
-{
-  "suggestedType": "上記カテゴリのいずれか",
-  "dangerLevel": 3,
-  "suggestedDescription": "整理され子供・保護者にもわかりやすい説明文",
-  "detectedHazardsFromImage": ["画像から見つかった危険要素1", "危険要素2"],
-  "reason": "分類・危険度の根拠"
-}
-`;
 
     contents.push(promptText);
 
@@ -175,26 +259,34 @@ export async function assistHazardInput(
       model: 'gemini-2.5-flash',
       contents: contents,
       config: {
-        responseMimeType: 'application/json'
+        responseMimeType: 'application/json',
+        responseSchema: hazardAssistSchema,
+        temperature: 0.2, // ブレを抑えて一貫した判定を行う
       }
     });
 
     const text = response.text || '';
     const parsed = JSON.parse(text);
     return {
-      suggestedType: parsed.suggestedType || 'その他',
+      suggestedType: parsed.category || 'Other',
+      categoryJapanese: parsed.categoryJapanese || 'そのほか',
       dangerLevel: typeof parsed.dangerLevel === 'number' ? Math.min(Math.max(parsed.dangerLevel, 1), 5) : 3,
       suggestedDescription: parsed.suggestedDescription || userText || '危険な場所があります。',
+      forKidsSummary: parsed.forKidsSummary || 'きをつけて とおってね！',
       detectedHazardsFromImage: parsed.detectedHazardsFromImage || [],
-      reason: parsed.reason || 'AI判定に基づく入力補助です。',
+      keywords: Array.isArray(parsed.keywords) ? parsed.keywords : [],
+      reason: parsed.reason || 'AI判定に基づく状況解析です。',
       isMock: false
     };
   } catch (error) {
     console.error('[GeminiService] Assist Input Error:', error);
     return {
-      suggestedType: 'その他',
+      suggestedType: 'Other',
+      categoryJapanese: 'そのほか',
       dangerLevel: 3,
       suggestedDescription: userText || '危険な場所があります。',
+      forKidsSummary: 'あぶない ところには きをつけてね！',
+      keywords: ['注意'],
       reason: 'AI判定処理でエラーが発生したため、デフォルト値を返します。',
       isMock: true
     };
@@ -228,21 +320,30 @@ export async function generateAreaSummary(
 
 【周辺の危険情報一覧】
 ${hazardListText}
-
-出力形式は以下のJSONのみにしてください:
-{
-  "summaryTitle": "全体を表す分かりやすいタイトル",
-  "forKidsSummary": "子供向けのひらがなまとめメッセージ（50文字前後）",
-  "forAdultsSummary": "保護者向けの地域安全注意点（100文字前後）",
-  "keyPoints": ["重要なポイント1", "重要なポイント2", "重要なポイント3"]
-}
 `;
+
+    const areaSummarySchema = {
+      type: Type.OBJECT,
+      properties: {
+        summaryTitle: { type: Type.STRING, description: 'エリアの全体傾向を表す親しみやすいタイトル' },
+        forKidsSummary: { type: Type.STRING, description: '子供向けのひらがなまとめメッセージ（50文字前後）' },
+        forAdultsSummary: { type: Type.STRING, description: '保護者・地域大人向けの具体的な注意点（80〜120文字）' },
+        keyPoints: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING },
+          description: '特に注意すべきポイント（2〜3箇条）'
+        }
+      },
+      required: ['summaryTitle', 'forKidsSummary', 'forAdultsSummary', 'keyPoints']
+    };
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: prompt,
       config: {
-        responseMimeType: 'application/json'
+        responseMimeType: 'application/json',
+        responseSchema: areaSummarySchema,
+        temperature: 0.3
       }
     });
 
@@ -269,7 +370,10 @@ ${hazardListText}
 /**
  * あんぜん博士とのQ&Aチャット
  */
-export async function askSafetyQuestion(question: string, contextHazards?: any[]): Promise<{ answerForKids: string; answerForAdults: string; isMock: boolean }> {
+export async function askSafetyQuestion(
+  question: string,
+  contextHazards?: any[]
+): Promise<{ answerForKids: string; answerForAdults: string; isMock: boolean }> {
   if (!ai) {
     return {
       answerForKids: 'みぎ ひだりを よくみて、あぶない ところには ちかづかないように しようね！',
@@ -289,18 +393,25 @@ export async function askSafetyQuestion(question: string, contextHazards?: any[]
 ${contextText}
 
 質問: "${question}"
-
-出力形式 (JSON):
-{
-  "answerForKids": "ひらがな多め・親切で短い回答",
-  "answerForAdults": "保護者・地域のおとな向けの具体的なアドバイス"
-}
 `;
+
+    const chatSchema = {
+      type: Type.OBJECT,
+      properties: {
+        answerForKids: { type: Type.STRING, description: 'ひらがな多め・親切で分かりやすい子供向け回答（50〜80文字）' },
+        answerForAdults: { type: Type.STRING, description: '保護者・地域のおとな向けの具体的アドバイス（80〜120文字）' }
+      },
+      required: ['answerForKids', 'answerForAdults']
+    };
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: prompt,
-      config: { responseMimeType: 'application/json' }
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: chatSchema,
+        temperature: 0.4
+      }
     });
 
     const parsed = JSON.parse(response.text || '{}');
