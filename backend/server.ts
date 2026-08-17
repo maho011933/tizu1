@@ -7,7 +7,8 @@ import { fileURLToPath } from 'url';
 import multer from 'multer';
 
 import dotenv from 'dotenv';
-import { generateSafetyAdvice, assistHazardInput } from './services/geminiService.js';
+import { generateSafetyAdvice } from './services/geminiService.js';
+import aiRoutes from './routes/aiRoutes.js';
 
 dotenv.config();
 
@@ -33,8 +34,8 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-
-// Get all hazards
+// Gemini AI モジュールルーターのマウント
+app.use('/api/ai', aiRoutes);
 app.get('/api/hazards', (req, res) => {
   fs.readFile(DATA_FILE, 'utf8', (err, data) => {
     if (err) {
@@ -129,6 +130,7 @@ app.delete('/api/hazards/:id', (req, res) => {
 });
 
 
+
 // Update a hazard
 app.put('/api/hazards/:id', upload.single('image'), (req: any, res: any) => {
   const id = parseInt(req.params.id);
@@ -154,33 +156,6 @@ app.put('/api/hazards/:id', upload.single('image'), (req: any, res: any) => {
       res.json(hazards[index]);
     });
   });
-});
-
-// AI Safety Advice endpoint
-app.post('/api/ai/advice', async (req, res) => {
-  const { description, type } = req.body;
-  if (!description || !type) {
-    return res.status(400).json({ error: 'description and type are required' });
-  }
-  try {
-    const advice = await generateSafetyAdvice(description, type);
-    res.json(advice);
-  } catch (error) {
-    res.status(500).json({ error: 'AIアドバイスの生成に失敗しました' });
-  }
-});
-
-// AI Input Assist endpoint (supports optional image upload)
-app.post('/api/ai/assist', upload.single('image'), async (req, res) => {
-  const { text } = req.body;
-  const imagePath = req.file ? req.file.path : undefined;
-
-  try {
-    const result = await assistHazardInput(text || '', imagePath);
-    res.json(result);
-  } catch (error) {
-    res.status(500).json({ error: '入力アシストの生成に失敗しました' });
-  }
 });
 
 app.listen(PORT, () => {
