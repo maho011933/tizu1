@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap, Polyline } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { useLocation } from './context/LocationContext';
+import { useLocation, AVATAR_OPTIONS } from './context/LocationContext';
 
 // Fix for default marker icons in React Leaflet
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
@@ -58,52 +58,128 @@ const getHomeIcon = () => {
   });
 };
 
-const getUserLocationIcon = () => {
+const getUserLocationIcon = (avatarId: string = 'boy', heading: number | null = null, isMoving: boolean = false) => {
+  const avatarObj = AVATAR_OPTIONS.find(a => a.id === avatarId) || AVATAR_OPTIONS[0];
+  const color = avatarObj.color;
+  const emoji = avatarObj.emoji;
+  const isVehicle = avatarObj.type === 'vehicle' || avatarObj.type === 'pet';
+  const movingClass = isMoving ? (isVehicle ? 'is-moving-vehicle' : 'is-moving-walk') : '';
+
+  const headingHtml = heading !== null
+    ? `<div class="user-heading-ring" style="transform: rotate(${heading}deg);">
+         <div class="user-heading-arrow"></div>
+       </div>`
+    : '';
+
   return L.divIcon({
     className: 'user-location-icon',
     html: `
       <div class="user-location-container">
-        <div class="user-location-pulse"></div>
-        <div class="user-location-dot">🚶‍♂️</div>
-        <div style="position: absolute; top: -20px; left: 50%; transform: translateX(-50%); background: #2980B9; color: white; font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 10px; white-space: nowrap; border: 1px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
-          いまいるばしょ
+        <div class="user-location-pulse" style="background-color: ${color}55;"></div>
+        ${headingHtml}
+        <div class="user-location-dot ${movingClass}" style="background: linear-gradient(135deg, ${color}, #2C3E50);">
+          ${emoji}
+        </div>
+        <div style="position: absolute; top: -22px; left: 50%; transform: translateX(-50%); background: ${color}; color: white; font-size: 10px; font-weight: bold; padding: 2px 7px; border-radius: 10px; white-space: nowrap; border: 1.5px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.25); z-index: 3;">
+          ${avatarObj.label}
         </div>
       </div>
     `,
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
+    iconSize: [44, 44],
+    iconAnchor: [22, 22],
   });
 };
 
-const LocateControl = ({ userPos }: { userPos: [number, number] | null }) => {
+const MapControls = ({
+  userPos,
+  onOpenAvatarModal,
+  isSimulating,
+  onToggleSimulation
+}: {
+  userPos: [number, number] | null;
+  onOpenAvatarModal: () => void;
+  isSimulating: boolean;
+  onToggleSimulation: () => void;
+}) => {
   const map = useMap();
-  if (!userPos) return null;
 
   return (
-    <button
-      onClick={() => map.flyTo(userPos, 16, { animate: true, duration: 1 })}
-      title="いまいるばしょへ移動"
-      style={{
-        position: 'absolute',
-        top: '10px',
-        right: '10px',
-        zIndex: 1000,
-        backgroundColor: 'white',
-        border: '2px solid #3498DB',
-        borderRadius: '50px',
-        padding: '8px 14px',
-        cursor: 'pointer',
-        fontWeight: 'bold',
-        fontSize: '0.85rem',
-        color: '#2980B9',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '6px'
-      }}
-    >
-      <span>📍</span> いまいるばしょ
-    </button>
+    <div style={{
+      position: 'absolute',
+      top: '10px',
+      right: '10px',
+      zIndex: 1000,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '8px',
+      alignItems: 'flex-end'
+    }}>
+      {userPos && (
+        <button
+          onClick={() => map.flyTo(userPos, 16, { animate: true, duration: 1 })}
+          title="いまいるばしょへ移動"
+          style={{
+            backgroundColor: 'white',
+            border: '2px solid #3498DB',
+            borderRadius: '50px',
+            padding: '8px 14px',
+            cursor: 'pointer',
+            fontWeight: 'bold',
+            fontSize: '0.85rem',
+            color: '#2980B9',
+            boxShadow: '0 3px 8px rgba(0,0,0,0.2)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}
+        >
+          <span>📍</span> いまいるばしょ
+        </button>
+      )}
+
+      <button
+        onClick={onOpenAvatarModal}
+        title="アバターをかえる"
+        style={{
+          backgroundColor: 'white',
+          border: '2px solid #9B59B6',
+          borderRadius: '50px',
+          padding: '7px 13px',
+          cursor: 'pointer',
+          fontWeight: 'bold',
+          fontSize: '0.85rem',
+          color: '#8E44AD',
+          boxShadow: '0 3px 8px rgba(0,0,0,0.2)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px'
+        }}
+      >
+        <span>🎨</span> アイコンをかえる
+      </button>
+
+      <button
+        onClick={onToggleSimulation}
+        title="おさんぽテスト（デモ移動）"
+        style={{
+          backgroundColor: isSimulating ? '#2ECC71' : 'white',
+          border: `2px solid ${isSimulating ? '#27AE60' : '#7F8C8D'}`,
+          borderRadius: '50px',
+          padding: '6px 12px',
+          cursor: 'pointer',
+          fontWeight: 'bold',
+          fontSize: '0.8rem',
+          color: isSimulating ? 'white' : '#555',
+          boxShadow: '0 3px 8px rgba(0,0,0,0.2)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          transition: 'all 0.2s ease'
+        }}
+      >
+        <span>{isSimulating ? '🐾' : '🚶'}</span> {isSimulating ? 'おさんぽ中 (ていし)' : 'おさんぽテスト'}
+      </button>
+    </div>
   );
 };
 
@@ -196,13 +272,21 @@ function App() {
   const { 
     userPos, 
     accuracy, 
+    heading,
+    isMoving,
     isTracking, 
     locationHistory, 
     error: locationError, 
+    avatar,
+    setAvatar,
+    isSimulating,
+    toggleSimulation,
     startTracking, 
     stopTracking, 
     clearHistory 
   } = useLocation();
+
+  const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
 
   const [hazards, setHazards] = useState<Hazard[]>([]);
   const [newHazardPos, setNewHazardPos] = useState<L.LatLng | null>(null);
@@ -907,18 +991,45 @@ function App() {
               />
             )}
             {userPos && (
-              <Marker position={userPos} icon={getUserLocationIcon()}>
+              <Marker position={userPos} icon={getUserLocationIcon(avatar, heading, isMoving)}>
                 <Popup>
                   <div style={{ textAlign: 'center' }}>
-                    <strong>🚶‍♂️ いまいるばしょ</strong><br/>
+                    <strong>{AVATAR_OPTIONS.find(a => a.id === avatar)?.emoji} いまいるばしょ ({AVATAR_OPTIONS.find(a => a.id === avatar)?.label})</strong><br/>
                     <span style={{ fontSize: '0.8rem', color: '#7F8C8D' }}>
                       測位精度: 約{accuracy ? Math.round(accuracy) : '?'}m
+                      {isMoving && ' 🏃 うごき中'}
                     </span>
                   </div>
                 </Popup>
               </Marker>
             )}
-            <LocateControl userPos={userPos} />
+          {locationError && !isSimulating && (
+            <div style={{
+              position: 'absolute',
+              top: '10px',
+              left: '10px',
+              zIndex: 1000,
+              background: '#FFF3CD',
+              border: '2px solid #FFEBAA',
+              color: '#856404',
+              borderRadius: '20px',
+              padding: '6px 14px',
+              fontSize: '0.8rem',
+              fontWeight: 'bold',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}>
+              <span>⚠️</span> {locationError}
+            </div>
+          )}
+          <MapControls
+            userPos={userPos}
+            onOpenAvatarModal={() => setIsAvatarModalOpen(true)}
+            isSimulating={isSimulating}
+            onToggleSimulation={toggleSimulation}
+          />
             {homePos && (
               <Marker position={homePos} icon={getHomeIcon()}>
                 <Popup>🏠 いつもの ばしょ</Popup>
@@ -1317,6 +1428,70 @@ function App() {
             <span style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>ほうこく</span>
           </button>
         </nav>
+      )}
+
+      {/* アバター選択モーダル */}
+      {isAvatarModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsAvatarModalOpen(false)}>
+          <div className="modal-card" onClick={e => e.stopPropagation()} style={{ border: '4px solid #9B59B6', maxWidth: '460px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <h3 style={{ margin: 0, color: '#8E44AD', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.2rem' }}>
+                <span>🎨</span> アイコンを えらぼう！
+              </h3>
+              <button 
+                onClick={() => setIsAvatarModalOpen(false)}
+                style={{ background: '#F0F0F0', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem', color: '#666' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <p style={{ fontSize: '0.9rem', color: '#555', margin: '0 0 16px 0', lineHeight: 1.4 }}>
+              ちずのうえで うごく あなたの アイコンを えらんでね！
+            </p>
+
+            <div className="avatar-grid">
+              {AVATAR_OPTIONS.map(opt => (
+                <div
+                  key={opt.id}
+                  className={`avatar-card ${avatar === opt.id ? 'selected' : ''}`}
+                  onClick={() => {
+                    setAvatar(opt.id);
+                    setIsAvatarModalOpen(false);
+                  }}
+                >
+                  <div className="avatar-emoji-large">{opt.emoji}</div>
+                  <div className="avatar-label-text">{opt.label}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #EEE', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.85rem', color: '#7F8C8D' }}>
+                いまのアイコン: <strong>{AVATAR_OPTIONS.find(a => a.id === avatar)?.label}</strong>
+              </span>
+              <button
+                onClick={() => {
+                  toggleSimulation();
+                  setIsAvatarModalOpen(false);
+                }}
+                style={{
+                  background: isSimulating ? '#E74C3C' : '#2ECC71',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '20px',
+                  padding: '8px 16px',
+                  fontSize: '0.85rem',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.15)'
+                }}
+              >
+                {isSimulating ? '⏹ おさんぽテストをとめる' : '🐾 おさんぽテスト（デモ移動）'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -182,54 +182,153 @@ body {
   }
 }
 
-/* 現在地アイコン用アニメーション */
+/* 現在地アイコン用アニメーション & アバター表示 */
 .user-location-container {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
 }
 
 .user-location-pulse {
   position: absolute;
-  width: 32px;
-  height: 32px;
-  background-color: rgba(52, 152, 219, 0.4);
+  width: 44px;
+  height: 44px;
+  background-color: rgba(52, 152, 219, 0.35);
   border-radius: 50%;
-  animation: pulse-ring 2s infinite ease-out;
+  animation: pulse-ring 2.2s infinite ease-out;
+  pointer-events: none;
 }
 
 @keyframes pulse-ring {
   0% {
-    transform: scale(0.6);
+    transform: scale(0.5);
     opacity: 1;
   }
   100% {
-    transform: scale(2.4);
+    transform: scale(2.6);
     opacity: 0;
   }
 }
 
+/* 進行方向（ヘディング）矢印 */
+.user-heading-ring {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  pointer-events: none;
+  transition: transform 0.5s cubic-bezier(0.2, 0, 0, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+.user-heading-arrow {
+  position: absolute;
+  top: -6px;
+  width: 0;
+  height: 0;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-bottom: 12px solid #E74C3C;
+  filter: drop-shadow(0 2px 3px rgba(0,0,0,0.3));
+}
+
+/* アバター本体ドット */
 .user-location-dot {
-  width: 26px;
-  height: 26px;
-  background: linear-gradient(135deg, #3498DB, #2980B9);
+  width: 34px;
+  height: 34px;
   border: 3px solid white;
   border-radius: 50%;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
   z-index: 2;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 18px;
   color: white;
+  transition: transform 0.3s ease, background 0.3s ease;
 }
 
-/* Leafletマーカーの位置移動スムーズ化 */
+/* 歩行ぴょんぴょんアニメーション */
+.user-location-dot.is-moving-walk {
+  animation: bounce-walk 0.5s infinite alternate ease-in-out;
+}
+
+@keyframes bounce-walk {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    transform: translateY(-8px) scale(1.08) rotate(4deg);
+  }
+}
+
+/* 乗り物・ペットぶるぶる移動アニメーション */
+.user-location-dot.is-moving-vehicle {
+  animation: rumble-vehicle 0.3s infinite alternate ease-in-out;
+}
+
+@keyframes rumble-vehicle {
+  0% {
+    transform: translateY(0) rotate(-3deg);
+  }
+  100% {
+    transform: translateY(-3px) rotate(3deg);
+  }
+}
+
+/* Leafletマーカーの位置移動スムーズ化 (ぬるぬる移動) */
 .leaflet-marker-icon.user-location-icon {
-  transition: transform 0.6s cubic-bezier(0.25, 0.1, 0.25, 1) !important;
+  transition: transform 0.8s cubic-bezier(0.25, 0.1, 0.25, 1) !important;
+}
+
+/* アバター選択モーダル用スタイル */
+.avatar-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.avatar-card {
+  background: #F8F9FA;
+  border: 3px solid #E2E8F0;
+  border-radius: 16px;
+  padding: 12px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.avatar-card:hover {
+  transform: translateY(-3px);
+  border-color: #3498DB;
+  box-shadow: 0 6px 12px rgba(52, 152, 219, 0.2);
+}
+
+.avatar-card.selected {
+  border-color: #3498DB;
+  background: #EBF5FB;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.3);
+  transform: scale(1.05);
+}
+
+.avatar-emoji-large {
+  font-size: 2.2rem;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+.avatar-label-text {
+  font-size: 0.8rem;
+  font-weight: bold;
+  color: #2C3E50;
 }
 
 /* 危険接近アラートバナー */
