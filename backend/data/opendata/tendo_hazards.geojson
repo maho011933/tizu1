@@ -300,6 +300,108 @@
     {
       "type": "Feature",
       "properties": {
+        "id": "TENDO-CRM-005",
+        "category_raw": "こども110番の家",
+        "name": "こども110番の家（天童温泉街・駅東）",
+        "city": "天童市",
+        "district": "鎌田本町1丁目",
+        "hazard_level": 1,
+        "description_ja": "【こども110番】こわい思いをしたり 迷子になったときに 助けてくれる お店・お家です！",
+        "source": "天童市生活安全推進協議会オープンデータ"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [140.3720, 38.3610]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "TENDO-AED-001",
+        "category_raw": "AED設置場所・救急",
+        "name": "天童市市民プラザ（パルテ AED）",
+        "city": "天童市",
+        "district": "本町1-1-2",
+        "hazard_level": 1,
+        "description_ja": "【AED設置場所】天童駅直結のパルテ1階にAEDがあります。緊急時に誰でも使える救命装置です！",
+        "source": "天童市AED設置場所オープンデータ"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [140.3688, 38.3601]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "TENDO-AED-002",
+        "category_raw": "AED設置場所・救急",
+        "name": "天童市立市民文化会館・市立図書館（AED）",
+        "city": "天童市",
+        "district": "老野森1-1-1",
+        "hazard_level": 1,
+        "description_ja": "【AED設置場所】文化会館および市立図書館のエントランスにAEDが常設されています。",
+        "source": "天童市AED設置場所オープンデータ"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [140.3705, 38.3540]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "TENDO-AED-003",
+        "category_raw": "AED設置場所・救急",
+        "name": "天童市スポーツセンター（AED）",
+        "city": "天童市",
+        "district": "乱川1-1-10",
+        "hazard_level": 1,
+        "description_ja": "【AED設置場所】総合体育館事務室前にAEDがあります。スポーツ時や近隣での救護に使えます。",
+        "source": "天童市AED設置場所オープンデータ"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [140.3542, 38.3615]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "TENDO-AED-004",
+        "category_raw": "AED設置場所・救急",
+        "name": "山形県総合運動公園（NDソフトスタジアム AED）",
+        "city": "天童市",
+        "district": "山王1-1",
+        "hazard_level": 1,
+        "description_ja": "【AED設置場所】総合運動公園中央エントランスおよび陸上競技場にAEDが設置されています。",
+        "source": "山形県広域スポーツ施設AED設置オープンデータ"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [140.3805, 38.3360]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "TENDO-AED-005",
+        "category_raw": "AED設置場所・救急",
+        "name": "天童南部公民館（AED）",
+        "city": "天童市",
+        "district": "田鶴町3-1-1",
+        "hazard_level": 1,
+        "description_ja": "【AED設置場所】南部公民館ロビーにAEDが配備されています。地域避難所の救急拠点です。",
+        "source": "天童市AED設置場所オープンデータ"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [140.3750, 38.3410]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
         "id": "TENDO-TRF-001",
         "category_raw": "交通事故多発交差点",
         "name": "国道13号 天童バイパス交差点",

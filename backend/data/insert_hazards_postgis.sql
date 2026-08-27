@@ -447,6 +447,162 @@ ON CONFLICT (external_id) DO UPDATE SET
 
 INSERT INTO hazards (external_id, type, name, city, district, hazard_level, description, source, lat, lng, location)
 VALUES (
+  'TENDO-CRM-005',
+  'Crime',
+  'こども110番の家（天童温泉街・駅東）',
+  '天童市',
+  '鎌田本町1丁目',
+  1,
+  '【こども110番】こわい思いをしたり 迷子になったときに 助けてくれる お店・お家です！',
+  '天童市生活安全推進協議会オープンデータ',
+  38.361,
+  140.372,
+  ST_SetSRID(ST_MakePoint(140.372, 38.361), 4326)
+)
+ON CONFLICT (external_id) DO UPDATE SET
+  type = EXCLUDED.type,
+  name = EXCLUDED.name,
+  district = EXCLUDED.district,
+  hazard_level = EXCLUDED.hazard_level,
+  description = EXCLUDED.description,
+  source = EXCLUDED.source,
+  lat = EXCLUDED.lat,
+  lng = EXCLUDED.lng,
+  location = EXCLUDED.location,
+  updated_at = NOW();
+
+INSERT INTO hazards (external_id, type, name, city, district, hazard_level, description, source, lat, lng, location)
+VALUES (
+  'TENDO-AED-001',
+  'AED',
+  '天童市市民プラザ（パルテ AED）',
+  '天童市',
+  '本町1-1-2',
+  1,
+  '【AED設置場所】天童駅直結のパルテ1階にAEDがあります。緊急時に誰でも使える救命装置です！',
+  '天童市AED設置場所オープンデータ',
+  38.3601,
+  140.3688,
+  ST_SetSRID(ST_MakePoint(140.3688, 38.3601), 4326)
+)
+ON CONFLICT (external_id) DO UPDATE SET
+  type = EXCLUDED.type,
+  name = EXCLUDED.name,
+  district = EXCLUDED.district,
+  hazard_level = EXCLUDED.hazard_level,
+  description = EXCLUDED.description,
+  source = EXCLUDED.source,
+  lat = EXCLUDED.lat,
+  lng = EXCLUDED.lng,
+  location = EXCLUDED.location,
+  updated_at = NOW();
+
+INSERT INTO hazards (external_id, type, name, city, district, hazard_level, description, source, lat, lng, location)
+VALUES (
+  'TENDO-AED-002',
+  'AED',
+  '天童市立市民文化会館・市立図書館（AED）',
+  '天童市',
+  '老野森1-1-1',
+  1,
+  '【AED設置場所】文化会館および市立図書館のエントランスにAEDが常設されています。',
+  '天童市AED設置場所オープンデータ',
+  38.354,
+  140.3705,
+  ST_SetSRID(ST_MakePoint(140.3705, 38.354), 4326)
+)
+ON CONFLICT (external_id) DO UPDATE SET
+  type = EXCLUDED.type,
+  name = EXCLUDED.name,
+  district = EXCLUDED.district,
+  hazard_level = EXCLUDED.hazard_level,
+  description = EXCLUDED.description,
+  source = EXCLUDED.source,
+  lat = EXCLUDED.lat,
+  lng = EXCLUDED.lng,
+  location = EXCLUDED.location,
+  updated_at = NOW();
+
+INSERT INTO hazards (external_id, type, name, city, district, hazard_level, description, source, lat, lng, location)
+VALUES (
+  'TENDO-AED-003',
+  'AED',
+  '天童市スポーツセンター（AED）',
+  '天童市',
+  '乱川1-1-10',
+  1,
+  '【AED設置場所】総合体育館事務室前にAEDがあります。スポーツ時や近隣での救護に使えます。',
+  '天童市AED設置場所オープンデータ',
+  38.3615,
+  140.3542,
+  ST_SetSRID(ST_MakePoint(140.3542, 38.3615), 4326)
+)
+ON CONFLICT (external_id) DO UPDATE SET
+  type = EXCLUDED.type,
+  name = EXCLUDED.name,
+  district = EXCLUDED.district,
+  hazard_level = EXCLUDED.hazard_level,
+  description = EXCLUDED.description,
+  source = EXCLUDED.source,
+  lat = EXCLUDED.lat,
+  lng = EXCLUDED.lng,
+  location = EXCLUDED.location,
+  updated_at = NOW();
+
+INSERT INTO hazards (external_id, type, name, city, district, hazard_level, description, source, lat, lng, location)
+VALUES (
+  'TENDO-AED-004',
+  'AED',
+  '山形県総合運動公園（NDソフトスタジアム AED）',
+  '天童市',
+  '山王1-1',
+  1,
+  '【AED設置場所】総合運動公園中央エントランスおよび陸上競技場にAEDが設置されています。',
+  '山形県広域スポーツ施設AED設置オープンデータ',
+  38.336,
+  140.3805,
+  ST_SetSRID(ST_MakePoint(140.3805, 38.336), 4326)
+)
+ON CONFLICT (external_id) DO UPDATE SET
+  type = EXCLUDED.type,
+  name = EXCLUDED.name,
+  district = EXCLUDED.district,
+  hazard_level = EXCLUDED.hazard_level,
+  description = EXCLUDED.description,
+  source = EXCLUDED.source,
+  lat = EXCLUDED.lat,
+  lng = EXCLUDED.lng,
+  location = EXCLUDED.location,
+  updated_at = NOW();
+
+INSERT INTO hazards (external_id, type, name, city, district, hazard_level, description, source, lat, lng, location)
+VALUES (
+  'TENDO-AED-005',
+  'AED',
+  '天童南部公民館（AED）',
+  '天童市',
+  '田鶴町3-1-1',
+  1,
+  '【AED設置場所】南部公民館ロビーにAEDが配備されています。地域避難所の救急拠点です。',
+  '天童市AED設置場所オープンデータ',
+  38.341,
+  140.375,
+  ST_SetSRID(ST_MakePoint(140.375, 38.341), 4326)
+)
+ON CONFLICT (external_id) DO UPDATE SET
+  type = EXCLUDED.type,
+  name = EXCLUDED.name,
+  district = EXCLUDED.district,
+  hazard_level = EXCLUDED.hazard_level,
+  description = EXCLUDED.description,
+  source = EXCLUDED.source,
+  lat = EXCLUDED.lat,
+  lng = EXCLUDED.lng,
+  location = EXCLUDED.location,
+  updated_at = NOW();
+
+INSERT INTO hazards (external_id, type, name, city, district, hazard_level, description, source, lat, lng, location)
+VALUES (
   'TENDO-TRF-001',
   'Traffic',
   '国道13号 天童バイパス交差点',

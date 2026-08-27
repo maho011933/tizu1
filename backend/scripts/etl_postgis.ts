@@ -31,6 +31,9 @@ interface GeoJSONCollection {
 }
 
 function mapCategoryToAppType(categoryRaw: string): string {
+  if (categoryRaw.includes('AED') || categoryRaw.includes('救急') || categoryRaw.includes('きゅうきゅう')) {
+    return 'AED';
+  }
   if (categoryRaw.includes('避難') || categoryRaw.includes('ひなん')) {
     return 'Shelter';
   }

@@ -98,13 +98,13 @@ graph TD
 
 ### 5. データ / GIS エンジニア
 #### **Fさん：オープンデータ連携 & データ整備**
-*   **現在の状況:** 🟢 **完了。** 天童市実在オープンデータ（避難所、交番、洪水、土砂、事故）21件の収集・整理、JSON/PostGIS用ETLスクリプトの全作成およびデータ自動インポートの稼働確認完了。
+*   **現在の状況:** 🟢 **完了・大幅拡張。** 天童市実在オープンデータ（避難所、交番、洪水、土砂、事故、AED設置場所、こども110番の家）全27件の整備完了。Bash用実行スクリプト（`run_pipeline.sh`）およびJSON/PostGIS自動ETLパイプライン完備。
 
 | タスク内容 | 優先度 | 進捗 | 備考 |
 | :--- | :---: | :---: | :--- |
-| 自治体のハザードマップ（洪水、土砂災害等）や交通事故オープンデータの収集 | 高 | 🟢 完了 | 天童市公式避難地図、山形県警察オープンデータ21件を整理済み |
-| 収集したCSV/GeoJSONデータをPostGISのテーブルに適合させるETLスクリプトの作成 | 高 | 🟢 完了 | [etl_postgis.ts](file:///C:/Users/denshi13/tizu1/backend/scripts/etl_postgis.ts) & [init_postgis.sql](file:///C:/Users/denshi13/tizu1/backend/scripts/init_postgis.sql) を作成・稼働 |
-| 避難所やこども110番の家などの生活安全インフラデータの初期投入 | 中 | 🟢 完了 | 天童市指定避難所・交番等を `Shelter`/`Crime` カテゴリとして [hazards.json](file:///C:/Users/denshi13/tizu1/backend/data/hazards.json) に取り込み済み |
+| 自治体のハザードマップ（洪水、土砂災害等）や交通事故オープンデータの収集 | 高 | 🟢 完了 | 天童市公式避難地図、山形県警オープンデータ、AED一覧27件を整備済み |
+| 収集したCSV/GeoJSONデータをPostGISのテーブルに適合させるETLスクリプトの作成 | 高 | 🟢 完了 | [etl_postgis.ts](file:///C:/Users/denshi13/tizu1/backend/scripts/etl_postgis.ts) & [run_pipeline.sh](file:///C:/Users/denshi13/tizu1/backend/scripts/run_pipeline.sh) で一括生成可能 |
+| 避難所やこども110番の家・AEDなどの生活安全インフラデータの初期投入 | 中 | 🟢 完了 | `Shelter`/`Crime`/`AED` カテゴリとして [hazards.json](file:///C:/Users/denshi13/tizu1/backend/data/hazards.json) に全件投入完了 |
 
 ---
 
