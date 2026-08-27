@@ -30,6 +30,7 @@ const getMarkerIcon = (type: string, isMine: boolean = false) => {
     Crime: '#3498DB',   // 水色
     Disaster: '#95A5A6', // 灰色
     Lighting: '#F1C40F', // 黄色
+    Shelter: '#2ECC71',  // 緑
     Other: '#9B59B6'     // 紫
   };
   const color = colors[type] || colors.Other;
@@ -278,6 +279,7 @@ function App() {
     Crime: 'ふしんしゃ・ぼうはん 👮',
     Disaster: 'じしん・かじ 🌊',
     Lighting: 'くらみち・でんき 🌙',
+    Shelter: 'ひなんじょ 🏫',
     Other: 'そのほか 🐾'
   };
 
@@ -286,6 +288,7 @@ function App() {
     Crime: { bg: '#3498DB', text: 'white', shadow: '#2980B9' },       // 水色
     Disaster: { bg: '#95A5A6', text: 'white', shadow: '#7F8C8D' },    // 灰色
     Lighting: { bg: '#F1C40F', text: '#2C3E50', shadow: '#F39C12' },  // 黄色（文字は濃い色）
+    Shelter: { bg: '#2ECC71', text: 'white', shadow: '#27AE60' },     // 緑
     Other: { bg: '#9B59B6', text: 'white', shadow: '#8E44AD' }      // 紫（文字は白、影は濃い紫）
   };
 
@@ -624,6 +627,7 @@ function App() {
                   <option value="Crime">ぼうはん・ふしんしゃ 👮</option>
                   <option value="Disaster">じしん・かじ 🌊</option>
                   <option value="Lighting">みちが くらい 🌙</option>
+                  <option value="Shelter">ひなんじょ 🏫</option>
                   <option value="Other">そのほか 🐾</option>
                 </select>
               </div>
