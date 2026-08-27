@@ -82,7 +82,7 @@ function App() {
   const [type, setType] = useState('Traffic');
   const [description, setDescription] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [mapCenter, setMapCenter] = useState<[number, number]>([35.6895, 139.6917]);
+  const [mapCenter, setMapCenter] = useState<[number, number]>([38.3560, 140.3700]);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [activeTab, setActiveTab] = useState<'map' | 'list' | 'form'>('map');
   const [homePos, setHomePos] = useState<[number, number] | null>(() => {
@@ -323,28 +323,51 @@ function App() {
             {!isMobile && <p style={{ margin: 0, fontSize: '0.8rem', opacity: 0.8 }}>まちの 安全を みんなで まもろう！</p>}
           </div>
         </div>
-        <button 
-          onClick={() => {
-            if (window.confirm('いつもの ばしょを かえる？🏠')) {
-              setIsSettingHome(true);
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <button 
+            onClick={() => {
+              setMapCenter([38.3560, 140.3700]);
               if (isMobile) setActiveTab('map');
-            }
-          }}
-          style={{
-            background: '#34495E',
-            color: 'white',
-            border: 'none',
-            borderRadius: '20px',
-            padding: isMobile ? '0.4rem 0.8rem' : '0.5rem 1rem',
-            cursor: 'pointer',
-            fontSize: isMobile ? '0.7rem' : '0.9rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.3rem'
-          }}
-        >
-          🏠 <span>ばしょ設定</span>
-        </button>
+            }}
+            style={{
+              background: '#27AE60',
+              color: 'white',
+              border: 'none',
+              borderRadius: '20px',
+              padding: isMobile ? '0.4rem 0.8rem' : '0.5rem 1rem',
+              cursor: 'pointer',
+              fontSize: isMobile ? '0.7rem' : '0.9rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.3rem',
+              fontWeight: 'bold'
+            }}
+          >
+            🗺️ <span>天童市ピンへ</span>
+          </button>
+          <button 
+            onClick={() => {
+              if (window.confirm('いつもの ばしょを かえる？🏠')) {
+                setIsSettingHome(true);
+                if (isMobile) setActiveTab('map');
+              }
+            }}
+            style={{
+              background: '#34495E',
+              color: 'white',
+              border: 'none',
+              borderRadius: '20px',
+              padding: isMobile ? '0.4rem 0.8rem' : '0.5rem 1rem',
+              cursor: 'pointer',
+              fontSize: isMobile ? '0.7rem' : '0.9rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.3rem'
+            }}
+          >
+            🏠 <span>ばしょ設定</span>
+          </button>
+        </div>
       </header>
       
       {/* Home Selection Overlay (Welcome) */}
@@ -375,25 +398,47 @@ function App() {
             <p style={{ lineHeight: '1.6', marginBottom: '2rem' }}>
               じぶんの おうちや、よくいく ばしょを ちずの まんなかに するよ。
             </p>
-            <button 
-              onClick={() => {
-                setIsSettingHome(true);
-                if (isMobile) setActiveTab('map');
-              }}
-              style={{
-                background: '#E74C3C',
-                color: 'white',
-                border: 'none',
-                borderRadius: '50px',
-                padding: '1rem 2rem',
-                fontSize: '1.2rem',
-                fontWeight: 'bold',
-                cursor: 'pointer',
-                boxShadow: '0 4px 0 #C0392B'
-              }}
-            >
-              ちずで えらぶ！
-            </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', alignItems: 'center' }}>
+              <button 
+                onClick={() => {
+                  setIsSettingHome(true);
+                  if (isMobile) setActiveTab('map');
+                }}
+                style={{
+                  background: '#E74C3C',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '50px',
+                  padding: '0.9rem 2rem',
+                  fontSize: '1.2rem',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 0 #C0392B',
+                  width: '100%'
+                }}
+              >
+                ちずで えらぶ！📍
+              </button>
+              <button 
+                onClick={() => {
+                  setHomePos([38.3560, 140.3700]);
+                  setMapCenter([38.3560, 140.3700]);
+                  localStorage.setItem('homePos', JSON.stringify([38.3560, 140.3700]));
+                }}
+                style={{
+                  background: '#ECF0F1',
+                  color: '#7F8C8D',
+                  border: 'none',
+                  borderRadius: '50px',
+                  padding: '0.6rem 1.5rem',
+                  fontSize: '0.95rem',
+                  cursor: 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >
+                まずは ちずを みる（天童市）🗺️
+              </button>
+            </div>
           </div>
         </div>
       )}
