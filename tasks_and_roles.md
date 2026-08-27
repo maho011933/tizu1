@@ -73,12 +73,12 @@ graph TD
 | セキュアな画像アップロード（クラウドストレージ連携等）の対応 | 中 | 🔴 未着手 | AWS S3 または GCP Cloud Storage への移行検討 |
 
 #### **Dさん：ジオクエリ & 通知トリガー**
-*   **現在の状況:** PostGIS空間演算による半径検索API（`/api/hazards/nearby`）を実装完了（未接続時のHaversineフォールバック対応）。
+*   **現在の状況:** PostGIS空間演算による半径検索API（`/api/hazards/nearby`）および接近通知トリガーAPI（`/api/alerts/trigger`、SSEストリーム `/api/alerts/stream`）を実装完了。
 
 | タスク内容 | 優先度 | 進捗 | 備考 |
 | :--- | :---: | :---: | :--- |
 | PostGISの空間演算（`ST_DWithin`等）を用いた「半径Xm以内の危険箇所取得API」の実装 | 高 | 🟢 完了 | `/api/hazards/nearby?lat=...&lng=...&radius=...` を実装・動作確認済み |
-| ユーザーの現在位置を受け取り、接近アラートを発火する通知トリガーAPI | 高 | 🔴 未着手 | WebSocketまたはSSE（Server-Sent Events）の検討 |
+| ユーザーの現在位置を受け取り、接近アラートを発火する通知トリガーAPI | 高 | 🟢 完了 | `POST /api/alerts/trigger` および SSE (`GET /api/alerts/stream`) を実装・動作確認済み |
 | エリアごとの危険度統計データ（集計結果）を返すAPIの構築 | 中 | 🔴 未着手 | 例：町丁ごとの危険報告数ランキングなど |
 
 ---

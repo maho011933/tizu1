@@ -1,4 +1,5 @@
 import express from 'express';
+import type { Response } from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import fs from 'fs';
@@ -7,6 +8,8 @@ import { fileURLToPath } from 'url';
 import multer from 'multer';
 import { pool, isDbConnected, initializeDatabase, calculateHaversineDistanceMeters } from './db.js';
 import type { HazardData } from './db.js';
+import { buildChildFriendlyAlert } from './alerts.js';
+import type { AlertNotification, LocationTriggerResponse } from './alerts.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -14,6 +17,20 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3001;
 const DATA_FILE = path.join(__dirname, 'data', 'hazards.json');
+
+// SSE (Server-Sent Events) クライアント接続の管理
+const sseClients = new Set<Response>();
+
+function broadcastAlert(responsePayload: LocationTriggerResponse) {
+  const data = `data: ${JSON.stringify(responsePayload)}\n\n`;
+  for (const client of sseClients) {
+    try {
+      client.write(data);
+    } catch {
+      sseClients.delete(client);
+    }
+  }
+}
 
 // Multer setup for image uploads
 const storage = multer.diskStorage({
@@ -136,6 +153,139 @@ app.get('/api/hazards/nearby', async (req, res) => {
     console.error('Error in /api/hazards/nearby:', error);
     res.status(500).json({ error: '周辺データの取得に失敗しました', details: error.message });
   }
+});
+
+/**
+ * 🔔 接近通知トリガーAPI: 現在位置を受け取り、接近中の危険箇所アラートを発火
+ * POST /api/alerts/trigger または POST /api/alerts/check
+ * Body: { "lat": 35.6895, "lng": 139.6917, "alertRadius": 50, "deviceId": "user-123" }
+ */
+const handleLocationTrigger = async (req: express.Request, res: express.Response) => {
+  try {
+    const { lat, lng, alertRadius, deviceId } = req.body;
+    const parsedLat = typeof lat === 'number' ? lat : parseFloat(lat);
+    const parsedLng = typeof lng === 'number' ? lng : parseFloat(lng);
+    const radius = typeof alertRadius === 'number' ? alertRadius : (parseFloat(alertRadius) || 50);
+
+    if (isNaN(parsedLat) || isNaN(parsedLng)) {
+      return res.status(400).json({
+        error: 'lat (緯度) と lng (経度) を正しく指定してください。'
+      });
+    }
+
+    let nearbyHazards: HazardData[] = [];
+
+    if (isDbConnected()) {
+      const query = `
+        SELECT 
+          id,
+          type,
+          description,
+          image_url AS "imageUrl",
+          ST_Y(geom) AS lat,
+          ST_X(geom) AS lng,
+          COALESCE(comments, '[]'::jsonb) AS comments,
+          ROUND(
+            ST_Distance(
+              geom::geography, 
+              ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography
+            )::numeric, 1
+          ) AS "distanceMeters"
+        FROM 
+          hazards
+        WHERE 
+          ST_DWithin(
+            geom::geography,
+            ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
+            $3
+          )
+        ORDER BY 
+          "distanceMeters" ASC;
+      `;
+      const result = await pool.query(query, [parsedLng, parsedLat, radius]);
+      nearbyHazards = result.rows;
+    } else {
+      // Fallback: Haversine
+      const allHazards = readLocalHazards();
+      nearbyHazards = allHazards
+        .map(h => ({
+          ...h,
+          distanceMeters: calculateHaversineDistanceMeters(parsedLat, parsedLng, h.lat, h.lng)
+        }))
+        .filter(h => (h.distanceMeters ?? Infinity) <= radius)
+        .sort((a, b) => (a.distanceMeters ?? 0) - (b.distanceMeters ?? 0));
+    }
+
+    // 子供向け親しみやすいアラート文の構築
+    const alerts: AlertNotification[] = nearbyHazards.map(h =>
+      buildChildFriendlyAlert(h, h.distanceMeters ?? 0)
+    );
+
+    let highestLevel: 'danger' | 'warning' | 'info' | 'none' = 'none';
+    if (alerts.some(a => a.level === 'danger')) {
+      highestLevel = 'danger';
+    } else if (alerts.some(a => a.level === 'warning')) {
+      highestLevel = 'warning';
+    } else if (alerts.length > 0) {
+      highestLevel = 'info';
+    }
+
+    const payload: LocationTriggerResponse = {
+      timestamp: new Date().toISOString(),
+      currentLocation: {
+        lat: parsedLat,
+        lng: parsedLng
+      },
+      alertRadiusMeters: radius,
+      hasAlert: alerts.length > 0,
+      alertCount: alerts.length,
+      alerts,
+      highestLevel
+    };
+
+    // リアルタイム接続中のリスナー（保護者画面や他端末）へSSEブロードキャスト
+    if (payload.hasAlert) {
+      broadcastAlert(payload);
+    }
+
+    return res.json({
+      success: true,
+      deviceId: deviceId || null,
+      ...payload
+    });
+  } catch (error: any) {
+    console.error('Error in handleLocationTrigger:', error);
+    res.status(500).json({ error: '接近アラートの判定に失敗しました', details: error.message });
+  }
+};
+
+app.post('/api/alerts/trigger', handleLocationTrigger);
+app.post('/api/alerts/check', handleLocationTrigger);
+
+/**
+ * 📡 接近アラート受信用 Server-Sent Events (SSE) ストリーム
+ * GET /api/alerts/stream
+ */
+app.get('/api/alerts/stream', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  sseClients.add(res);
+
+  // 初期接続確認メッセージ
+  res.write(`data: ${JSON.stringify({ type: 'connected', message: '接近アラート通知ストリームに接続しました' })}\n\n`);
+
+  // キープアライブ (25秒毎)
+  const keepAlive = setInterval(() => {
+    res.write(': keep-alive\n\n');
+  }, 25000);
+
+  req.on('close', () => {
+    clearInterval(keepAlive);
+    sseClients.delete(res);
+  });
 });
 
 /**
