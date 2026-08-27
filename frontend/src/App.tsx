@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap, Polyline, Circle } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -105,6 +105,22 @@ function App() {
   const [commentTexts, setCommentTexts] = useState<Record<number, string>>({});
   const [selectedHazardId, setSelectedHazardId] = useState<number | null>(null);
   const [nearestResult, setNearestResult] = useState<NearestResult | null>(null);
+  const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>('ALL');
+
+  const filteredHazards = useMemo(() => {
+    if (activeCategoryFilter === 'ALL') {
+      return hazards;
+    }
+    return hazards.filter(h => h.type === activeCategoryFilter);
+  }, [hazards, activeCategoryFilter]);
+
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = { ALL: hazards.length };
+    hazards.forEach(h => {
+      counts[h.type] = (counts[h.type] || 0) + 1;
+    });
+    return counts;
+  }, [hazards]);
 
   const findNearest = async (targetType: 'Shelter' | 'AED') => {
     const origin = homePos || mapCenter;
@@ -462,6 +478,77 @@ function App() {
         </div>
       </div>
 
+      {/* Category Filter Bar */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.4rem',
+        padding: isMobile ? '0.4rem 0.6rem' : '0.5rem 1.5rem',
+        background: '#F8FAFC',
+        borderBottom: '1px solid #CBD5E1',
+        overflowX: 'auto',
+        whiteSpace: 'nowrap',
+        scrollbarWidth: 'none',
+        WebkitOverflowScrolling: 'touch',
+        zIndex: 850
+      }}>
+        <span style={{ fontSize: isMobile ? '0.75rem' : '0.85rem', fontWeight: 'bold', color: '#64748B', flexShrink: 0, marginRight: '0.2rem' }}>
+          🔍 しぼりこみ:
+        </span>
+        <button
+          onClick={() => setActiveCategoryFilter('ALL')}
+          style={{
+            background: activeCategoryFilter === 'ALL' ? '#2C3E50' : '#FFFFFF',
+            color: activeCategoryFilter === 'ALL' ? '#FFFFFF' : '#475569',
+            border: activeCategoryFilter === 'ALL' ? '2px solid #2C3E50' : '1px solid #CBD5E1',
+            borderRadius: '20px',
+            padding: isMobile ? '0.25rem 0.6rem' : '0.35rem 0.8rem',
+            fontSize: isMobile ? '0.75rem' : '0.85rem',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.3rem',
+            boxShadow: activeCategoryFilter === 'ALL' ? '0 2px 6px rgba(44,62,80,0.3)' : 'none',
+            transform: activeCategoryFilter === 'ALL' ? 'scale(1.04)' : 'scale(1)',
+            transition: 'all 0.15s ease-in-out',
+            flexShrink: 0
+          }}
+        >
+          🌈 ぜんぶ <span style={{ background: activeCategoryFilter === 'ALL' ? '#34495E' : '#E2E8F0', color: activeCategoryFilter === 'ALL' ? '#FFF' : '#64748B', borderRadius: '10px', padding: '1px 6px', fontSize: '0.7rem' }}>{categoryCounts.ALL || 0}</span>
+        </button>
+        {Object.entries(typeLabels).map(([catKey, label]) => {
+          const isActive = activeCategoryFilter === catKey;
+          const colorInfo = typeColors[catKey] || { bg: '#9B59B6', text: 'white', shadow: '#8E44AD' };
+          const count = categoryCounts[catKey] || 0;
+          return (
+            <button
+              key={catKey}
+              onClick={() => setActiveCategoryFilter(isActive ? 'ALL' : catKey)}
+              style={{
+                background: isActive ? colorInfo.bg : '#FFFFFF',
+                color: isActive ? colorInfo.text : '#334155',
+                border: isActive ? `2px solid ${colorInfo.shadow}` : '1px solid #CBD5E1',
+                borderRadius: '20px',
+                padding: isMobile ? '0.25rem 0.6rem' : '0.35rem 0.8rem',
+                fontSize: isMobile ? '0.75rem' : '0.85rem',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.3rem',
+                boxShadow: isActive ? `0 3px 8px ${colorInfo.shadow}55` : 'none',
+                transform: isActive ? 'scale(1.04)' : 'scale(1)',
+                transition: 'all 0.15s ease-in-out',
+                flexShrink: 0
+              }}
+            >
+              {label} <span style={{ background: isActive ? 'rgba(0,0,0,0.2)' : '#E2E8F0', color: isActive ? '#FFF' : '#64748B', borderRadius: '10px', padding: '1px 6px', fontSize: '0.7rem' }}>{count}</span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* Nearest Result Floating Notification Banner */}
       {nearestResult && (
         <div style={{
@@ -674,7 +761,7 @@ function App() {
                 <Popup>🏠 いつもの ばしょ</Popup>
               </Marker>
             )}
-            {hazards.map(h => (
+            {filteredHazards.map(h => (
               <Marker 
                 key={h.id} 
                 position={[h.lat, h.lng]} 
@@ -909,12 +996,20 @@ function App() {
           
           <hr style={{ border: 'none', borderTop: '1px solid #EEE', display: (!isMobile || (activeTab === 'form' || activeTab === 'list')) ? 'block' : 'none' }} />
           
-          {/* List Section */}
+            {/* List Section */}
           <section style={{ display: (!isMobile || activeTab === 'list') ? 'block' : 'none' }}>
-            <h3 style={{ color: '#2C3E50', fontSize: isMobile ? '1.2rem' : '1.2rem', marginBottom: '1rem' }}>みんなの ほうこく 🚩</h3>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+              <h3 style={{ color: '#2C3E50', fontSize: isMobile ? '1.2rem' : '1.2rem', margin: 0 }}>みんなの ほうこく 🚩</h3>
+              <span style={{ fontSize: '0.85rem', color: '#7F8C8D', fontWeight: 'bold' }}>{filteredHazards.length} 件</span>
+            </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {hazards.length === 0 && <p style={{ color: '#999' }}>まだ ほうこくは ありません。</p>}
-              {hazards.map(h => (
+              {filteredHazards.length === 0 && (
+                <div style={{ textAlign: 'center', padding: '2rem', color: '#95A5A6', background: '#F8F9FA', borderRadius: '10px' }}>
+                  <p style={{ fontSize: '2rem', margin: '0 0 0.5rem 0' }}>🍃</p>
+                  <p style={{ margin: 0, fontWeight: 'bold' }}>このカテゴリの ほうこくは まだありません。</p>
+                </div>
+              )}
+              {filteredHazards.map(h => (
                 <div 
                   key={h.id} 
                   id={`hazard-${h.id}`}
