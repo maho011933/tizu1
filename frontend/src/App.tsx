@@ -7,7 +7,7 @@ import L from 'leaflet';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 
-let DefaultIcon = L.icon({
+const DefaultIcon = L.icon({
   iconUrl: markerIcon,
   shadowUrl: markerShadow,
   iconSize: [25, 41],
@@ -73,6 +73,53 @@ interface Hazard {
   comments?: Comment[];
 }
 
+interface LocationPickerProps {
+  isSettingHome: boolean;
+  editingHazardId: number | null;
+  newHazardPos: L.LatLng | null;
+  setHomePos: (pos: [number, number]) => void;
+  setMapCenter: (pos: [number, number]) => void;
+  setIsSettingHome: (val: boolean) => void;
+  setNewHazardPos: (pos: L.LatLng | null) => void;
+}
+
+const LocationPicker = ({
+  isSettingHome,
+  editingHazardId,
+  newHazardPos,
+  setHomePos,
+  setMapCenter,
+  setIsSettingHome,
+  setNewHazardPos
+}: LocationPickerProps) => {
+  useMapEvents({
+    click(e) {
+      if (isSettingHome) {
+        const pos: [number, number] = [e.latlng.lat, e.latlng.lng];
+        if (window.confirm('ここを いつもの ばしょに する？🏠')) {
+          setHomePos(pos);
+          localStorage.setItem('homePos', JSON.stringify(pos));
+          setIsSettingHome(false);
+          setMapCenter(pos);
+        }
+        return;
+      }
+      if (editingHazardId) return; // Don't pick new location while editing
+      setNewHazardPos(e.latlng);
+    },
+  });
+
+  if (isSettingHome) return null;
+
+  return newHazardPos ? (
+    <Marker position={newHazardPos} icon={getMarkerIcon('Other')}>
+      <Popup>ここにきめる！📍</Popup>
+    </Marker>
+  ) : null;
+};
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
 function App() {
   const [hazards, setHazards] = useState<Hazard[]>([]);
   const [newHazardPos, setNewHazardPos] = useState<L.LatLng | null>(null);
@@ -80,13 +127,13 @@ function App() {
   const [type, setType] = useState('Traffic');
   const [description, setDescription] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [mapCenter, setMapCenter] = useState<[number, number]>([35.6895, 139.6917]);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [activeTab, setActiveTab] = useState<'map' | 'list' | 'form'>('map');
   const [homePos, setHomePos] = useState<[number, number] | null>(() => {
     const saved = localStorage.getItem('homePos');
     return saved ? JSON.parse(saved) : null;
   });
+  const [mapCenter, setMapCenter] = useState<[number, number]>(() => homePos || [35.6895, 139.6917]);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [activeTab, setActiveTab] = useState<'map' | 'list' | 'form'>('map');
   const [isSettingHome, setIsSettingHome] = useState(false);
   const [myHazardIds, setMyHazardIds] = useState<number[]>(() => {
     const saved = localStorage.getItem('myHazardIds');
@@ -118,10 +165,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    // If home is set, use it. Otherwise try geolocation.
-    if (homePos) {
-      setMapCenter(homePos);
-    } else if ("geolocation" in navigator) {
+    if (!homePos && "geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const pos: [number, number] = [position.coords.latitude, position.coords.longitude];
@@ -133,37 +177,10 @@ function App() {
       );
     }
 
-    fetch('http://localhost:3001/api/hazards')
+    fetch(`${API_BASE_URL}/api/hazards`)
       .then(res => res.json())
       .then(data => setHazards(data));
-  }, []);
-
-  const LocationPicker = () => {
-    useMapEvents({
-      click(e) {
-        if (isSettingHome) {
-          const pos: [number, number] = [e.latlng.lat, e.latlng.lng];
-          if (window.confirm('ここを いつもの ばしょに する？🏠')) {
-            setHomePos(pos);
-            localStorage.setItem('homePos', JSON.stringify(pos));
-            setIsSettingHome(false);
-            setMapCenter(pos);
-          }
-          return;
-        }
-        if (editingHazardId) return; // Don't pick new location while editing
-        setNewHazardPos(e.latlng);
-      },
-    });
-    
-    if (isSettingHome) return null;
-
-    return newHazardPos ? (
-      <Marker position={newHazardPos} icon={getMarkerIcon('Other')}>
-        <Popup>ここにきめる！📍</Popup>
-      </Marker>
-    ) : null;
-  };
+  }, [homePos]);
 
   const handleStartEdit = (h: Hazard) => {
     setEditingHazardId(h.id);
@@ -210,7 +227,7 @@ function App() {
         formData.append('imageUrl', 'null');
       }
 
-      fetch(`http://localhost:3001/api/hazards/${editingHazardId}`, {
+      fetch(`${API_BASE_URL}/api/hazards/${editingHazardId}`, {
         method: 'PUT',
         body: formData
       })
@@ -224,7 +241,7 @@ function App() {
       // Create new
       formData.append('lat', newHazardPos.lat.toString());
       formData.append('lng', newHazardPos.lng.toString());
-      fetch('http://localhost:3001/api/hazards', {
+      fetch(`${API_BASE_URL}/api/hazards`, {
         method: 'POST',
         body: formData
       })
@@ -243,7 +260,7 @@ function App() {
   };
 
   const handleResolve = (id: number) => {
-    fetch(`http://localhost:3001/api/hazards/${id}`, {
+    fetch(`${API_BASE_URL}/api/hazards/${id}`, {
       method: 'DELETE'
     })
       .then(() => {
@@ -256,7 +273,7 @@ function App() {
     const text = commentTexts[hazardId];
     if (!text) return;
 
-    fetch(`http://localhost:3001/api/hazards/${hazardId}/comments`, {
+    fetch(`${API_BASE_URL}/api/hazards/${hazardId}/comments`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text })
@@ -557,7 +574,15 @@ function App() {
                 </Popup>
               </Marker>
             ))}
-            <LocationPicker />
+            <LocationPicker
+              isSettingHome={isSettingHome}
+              editingHazardId={editingHazardId}
+              newHazardPos={newHazardPos}
+              setHomePos={setHomePos}
+              setMapCenter={setMapCenter}
+              setIsSettingHome={setIsSettingHome}
+              setNewHazardPos={setNewHazardPos}
+            />
           </MapContainer>
           
           {isMobile && newHazardPos && activeTab === 'map' && (
