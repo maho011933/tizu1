@@ -325,10 +325,58 @@ function App() {
   const [notifiedHazardIds, setNotifiedHazardIds] = useState<Record<number, number>>({});
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
 
+  // PWA & オフライン対応State
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isStandalone, setIsStandalone] = useState<boolean>(() => {
+    return window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
+  });
+  const [isIOS] = useState<boolean>(() => {
+    return /iphone|ipad|ipod/i.test(window.navigator.userAgent);
+  });
+  const [isIOSInstallModalOpen, setIsIOSInstallModalOpen] = useState<boolean>(false);
+  const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
 
+  // PWA インストールプロンプト検出 & ネットワーク状態監視
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
 
+    const handleAppInstalled = () => {
+      setIsStandalone(true);
+      setDeferredPrompt(null);
+    };
 
-  // 危険箇所への接近判定
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setDeferredPrompt(null);
+      }
+    } else if (isIOS) {
+      setIsIOSInstallModalOpen(true);
+    } else {
+      alert("ブラウザのメニュー（⋮ や共有ボタン）から「ホーム画面に追加」または「アプリをインストール」をえらんでね！📱");
+    }
+  };
   useEffect(() => {
     if (!userPos || !isNotificationEnabled || hazards.length === 0) return;
 
@@ -425,9 +473,10 @@ function App() {
       );
     }
 
-    fetch('http://localhost:3001/api/hazards')
+    fetch('/api/hazards')
       .then(res => res.json())
-      .then(data => setHazards(data));
+      .then(data => setHazards(data))
+      .catch(err => console.error("Error fetching hazards:", err));
   }, []);
 
   const LocationPicker = () => {
@@ -502,7 +551,7 @@ function App() {
         formData.append('imageUrl', 'null');
       }
 
-      fetch(`http://localhost:3001/api/hazards/${editingHazardId}`, {
+      fetch(`/api/hazards/${editingHazardId}`, {
         method: 'PUT',
         body: formData
       })
@@ -511,12 +560,13 @@ function App() {
           setHazards(hazards.map(h => h.id === editingHazardId ? updatedHazard : h));
           handleCancelEdit();
           if (isMobile) setActiveTab('list');
-        });
+        })
+        .catch(err => console.error("Error updating hazard:", err));
     } else {
       // Create new
       formData.append('lat', newHazardPos.lat.toString());
       formData.append('lng', newHazardPos.lng.toString());
-      fetch('http://localhost:3001/api/hazards', {
+      fetch('/api/hazards', {
         method: 'POST',
         body: formData
       })
@@ -530,25 +580,27 @@ function App() {
           setDescription('');
           setImageFile(null);
           if (isMobile) setActiveTab('list');
-        });
+        })
+        .catch(err => console.error("Error adding hazard:", err));
     }
   };
 
   const handleResolve = (id: number) => {
-    fetch(`http://localhost:3001/api/hazards/${id}`, {
+    fetch(`/api/hazards/${id}`, {
       method: 'DELETE'
     })
       .then(() => {
         setHazards(hazards.filter(h => h.id !== id));
         if (editingHazardId === id) handleCancelEdit();
-      });
+      })
+      .catch(err => console.error("Error deleting hazard:", err));
   };
 
   const handlePostComment = (hazardId: number) => {
     const text = commentTexts[hazardId];
     if (!text) return;
 
-    fetch(`http://localhost:3001/api/hazards/${hazardId}/comments`, {
+    fetch(`/api/hazards/${hazardId}/comments`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text })
@@ -562,7 +614,8 @@ function App() {
           return h;
         }));
         setCommentTexts({ ...commentTexts, [hazardId]: '' });
-      });
+      })
+      .catch(err => console.error("Error posting comment:", err));
   };
 
   const typeLabels: Record<string, string> = {
@@ -610,6 +663,28 @@ function App() {
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0.3rem' : '0.6rem' }}>
+          {!isStandalone && (
+            <button 
+              onClick={handleInstallClick}
+              title="スマホのホーム画面にアプリを追加"
+              style={{
+                background: '#27AE60',
+                color: 'white',
+                border: 'none',
+                borderRadius: '20px',
+                padding: isMobile ? '0.4rem 0.7rem' : '0.5rem 1rem',
+                cursor: 'pointer',
+                fontSize: isMobile ? '0.7rem' : '0.9rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.3rem',
+                fontWeight: 'bold',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+              }}
+            >
+              📲 <span>アプリ保存</span>
+            </button>
+          )}
           <button 
             onClick={() => setIsNotificationModalOpen(true)}
             style={{
@@ -653,6 +728,25 @@ function App() {
           </button>
         </div>
       </header>
+
+      {/* オフライン状態バナー */}
+      {!isOnline && (
+        <div style={{
+          background: '#E67E22',
+          color: 'white',
+          textAlign: 'center',
+          padding: '6px 12px',
+          fontSize: '0.85rem',
+          fontWeight: 'bold',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '6px',
+          zIndex: 1000
+        }}>
+          <span>📶</span> オフライン動作中（キャッシュされたちずとデータを ひょうじしています）
+        </div>
+      )}
       
       {/* 近接アラートバナー */}
       {activeAlert && (
@@ -1490,6 +1584,46 @@ function App() {
                 {isSimulating ? '⏹ おさんぽテストをとめる' : '🐾 おさんぽテスト（デモ移動）'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* iOS Safari向けインストール案内モーダル */}
+      {isIOSInstallModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsIOSInstallModalOpen(false)}>
+          <div className="modal-card" onClick={e => e.stopPropagation()} style={{ border: '4px solid #3498DB', textAlign: 'center', maxWidth: '400px' }}>
+            <span style={{ fontSize: '3rem' }}>📲</span>
+            <h3 style={{ margin: '10px 0', color: '#2C3E50' }}>ホーム画面に アプリを追加しよう！</h3>
+            <div style={{ textAlign: 'left', background: '#F8F9FA', padding: '14px', borderRadius: '12px', fontSize: '0.9rem', lineHeight: '1.6', margin: '16px 0' }}>
+              <p style={{ margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ background: '#3498DB', color: 'white', borderRadius: '50%', width: '22px', height: '22px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 'bold' }}>1</span>
+                <span>Safari下の <strong>共有ボタン</strong> <span style={{ fontSize: '1.2rem' }}>⎋</span> を押す</span>
+              </p>
+              <p style={{ margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ background: '#3498DB', color: 'white', borderRadius: '50%', width: '22px', height: '22px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 'bold' }}>2</span>
+                <span>メニューから <strong>「ホーム画面に追加 ➕」</strong> を選ぶ</span>
+              </p>
+              <p style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ background: '#3498DB', color: 'white', borderRadius: '50%', width: '22px', height: '22px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 'bold' }}>3</span>
+                <span>右上の <strong>「追加」</strong> を押すとホーム画面に保存されるよ！</span>
+              </p>
+            </div>
+            <button
+              onClick={() => setIsIOSInstallModalOpen(false)}
+              style={{
+                width: '100%',
+                padding: '12px',
+                background: '#3498DB',
+                color: 'white',
+                border: 'none',
+                borderRadius: '12px',
+                fontWeight: 'bold',
+                fontSize: '1rem',
+                cursor: 'pointer'
+              }}
+            >
+              わかった！👍
+            </button>
           </div>
         </div>
       )}

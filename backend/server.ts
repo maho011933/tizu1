@@ -41,7 +41,7 @@ app.get('/api/hazards', (req, res) => {
 // Post a new hazard with image
 app.post('/api/hazards', upload.single('image'), (req, res) => {
   const { lat, lng, type, description } = req.body;
-  const imageUrl = req.file ? `http://localhost:3001/uploads/${req.file.filename}` : null;
+  const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
 
   fs.readFile(DATA_FILE, 'utf8', (err, data) => {
     if (err) return res.status(500).send('Error reading data file');
@@ -117,7 +117,7 @@ app.delete('/api/hazards/:id', (req, res) => {
 app.put('/api/hazards/:id', upload.single('image'), (req, res) => {
   const id = parseInt(req.params.id);
   const { type, description } = req.body;
-  const imageUrl = req.file ? `http://localhost:3001/uploads/${req.file.filename}` : req.body.imageUrl;
+  const imageUrl = req.file ? `/uploads/${req.file.filename}` : req.body.imageUrl;
 
   fs.readFile(DATA_FILE, 'utf8', (err, data) => {
     if (err) return res.status(500).send('Error reading data file');
