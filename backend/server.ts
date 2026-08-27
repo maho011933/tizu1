@@ -40,7 +40,7 @@ app.get('/api/hazards', (req, res) => {
 
 // Post a new hazard with image
 app.post('/api/hazards', upload.single('image'), (req, res) => {
-  const { lat, lng, type, description } = req.body;
+  const { lat, lng, type, description, level, timeOfDay } = req.body;
   const imageUrl = req.file ? `http://localhost:3001/uploads/${req.file.filename}` : null;
 
   fs.readFile(DATA_FILE, 'utf8', (err, data) => {
@@ -54,6 +54,8 @@ app.post('/api/hazards', upload.single('image'), (req, res) => {
       lng: parseFloat(lng),
       type,
       description,
+      level: level ? parseInt(level) : 3,
+      timeOfDay: timeOfDay || 'all',
       imageUrl,
       comments: []
     };
@@ -116,7 +118,7 @@ app.delete('/api/hazards/:id', (req, res) => {
 // Update a hazard
 app.put('/api/hazards/:id', upload.single('image'), (req, res) => {
   const id = parseInt(req.params.id);
-  const { type, description } = req.body;
+  const { type, description, level, timeOfDay } = req.body;
   const imageUrl = req.file ? `http://localhost:3001/uploads/${req.file.filename}` : req.body.imageUrl;
 
   fs.readFile(DATA_FILE, 'utf8', (err, data) => {
@@ -130,6 +132,8 @@ app.put('/api/hazards/:id', upload.single('image'), (req, res) => {
       ...hazards[index],
       type,
       description,
+      level: level ? parseInt(level) : (hazards[index].level || 3),
+      timeOfDay: timeOfDay || hazards[index].timeOfDay || 'all',
       imageUrl: imageUrl === 'null' ? null : imageUrl
     };
 
