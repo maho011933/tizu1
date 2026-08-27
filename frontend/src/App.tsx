@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap, Polyline, Circle } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -75,6 +75,14 @@ interface Hazard {
   comments?: Comment[];
 }
 
+interface NearestResult {
+  hazard: Hazard;
+  distanceMeters: number;
+  walkTimeMinutes: number;
+  origin: [number, number];
+  categoryName: string;
+}
+
 function App() {
   const [hazards, setHazards] = useState<Hazard[]>([]);
   const [newHazardPos, setNewHazardPos] = useState<L.LatLng | null>(null);
@@ -96,6 +104,32 @@ function App() {
   });
   const [commentTexts, setCommentTexts] = useState<Record<number, string>>({});
   const [selectedHazardId, setSelectedHazardId] = useState<number | null>(null);
+  const [nearestResult, setNearestResult] = useState<NearestResult | null>(null);
+
+  const findNearest = async (targetType: 'Shelter' | 'AED') => {
+    const origin = homePos || mapCenter;
+    try {
+      const res = await fetch(`http://localhost:3001/api/hazards/nearby?lat=${origin[0]}&lng=${origin[1]}&type=${targetType}&limit=1`);
+      const data = await res.json();
+      if (data && data.length > 0) {
+        const item = data[0];
+        setNearestResult({
+          hazard: item,
+          distanceMeters: item.distanceMeters,
+          walkTimeMinutes: item.walkTimeMinutes,
+          origin: origin,
+          categoryName: targetType === 'Shelter' ? 'ひなんじょ' : 'AED'
+        });
+        setMapCenter([item.lat, item.lng]);
+        setSelectedHazardId(item.id);
+        if (isMobile) setActiveTab('map');
+      } else {
+        alert(`${targetType === 'Shelter' ? 'ひなんじょ' : 'AED'}が みつかりませんでした`);
+      }
+    } catch (e) {
+      console.error('Error finding nearest spot:', e);
+    }
+  };
 
   useEffect(() => {
     if (selectedHazardId && (!isMobile || activeTab === 'list')) {
@@ -370,7 +404,114 @@ function App() {
         </div>
       </header>
       
-      {/* Home Selection Overlay (Welcome) */}
+      {/* Quick Nearest Safety Navigation Bar */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: isMobile ? 'space-around' : 'center',
+        gap: isMobile ? '0.4rem' : '1rem',
+        padding: isMobile ? '0.5rem 0.8rem' : '0.6rem 1.5rem',
+        background: '#FFFFFF',
+        borderBottom: '2px solid #E2E8F0',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+        zIndex: 900,
+        flexWrap: 'wrap'
+      }}>
+        <span style={{ fontSize: isMobile ? '0.75rem' : '0.9rem', fontWeight: 'bold', color: '#34495E' }}>
+          🏃‍♂️ いちばん ちかい 安全スポット:
+        </span>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button
+            onClick={() => findNearest('Shelter')}
+            style={{
+              background: '#2ECC71',
+              color: 'white',
+              border: 'none',
+              borderRadius: '20px',
+              padding: isMobile ? '0.35rem 0.8rem' : '0.45rem 1.2rem',
+              fontWeight: 'bold',
+              fontSize: isMobile ? '0.8rem' : '0.9rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.3rem',
+              boxShadow: '0 3px 0 #27AE60'
+            }}
+          >
+            🏫 ちかい ひなんじょ
+          </button>
+          <button
+            onClick={() => findNearest('AED')}
+            style={{
+              background: '#E67E22',
+              color: 'white',
+              border: 'none',
+              borderRadius: '20px',
+              padding: isMobile ? '0.35rem 0.8rem' : '0.45rem 1.2rem',
+              fontWeight: 'bold',
+              fontSize: isMobile ? '0.8rem' : '0.9rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.3rem',
+              boxShadow: '0 3px 0 #D35400'
+            }}
+          >
+            🫀 ちかい AED
+          </button>
+        </div>
+      </div>
+
+      {/* Nearest Result Floating Notification Banner */}
+      {nearestResult && (
+        <div style={{
+          position: 'fixed',
+          top: isMobile ? '115px' : '125px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 1500,
+          background: nearestResult.categoryName === 'ひなんじょ' ? '#2ECC71' : '#E67E22',
+          color: 'white',
+          padding: isMobile ? '0.6rem 1rem' : '0.8rem 1.4rem',
+          borderRadius: '30px',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.8rem',
+          maxWidth: '92%',
+          fontSize: isMobile ? '0.8rem' : '0.95rem',
+          fontWeight: 'bold',
+          animation: 'fadeIn 0.3s ease-in-out'
+        }}>
+          <span>
+            {nearestResult.categoryName === 'ひなんじょ' ? '🏫' : '🫀'} いちばん ちかい {nearestResult.categoryName}: 
+            <span style={{ textDecoration: 'underline', margin: '0 4px', fontWeight: '900' }}>
+              {nearestResult.hazard.description.split('\n')[0].replace(/【.*?】/, '')}
+            </span>
+            （約{nearestResult.distanceMeters}m / あるいて 約{nearestResult.walkTimeMinutes}分）
+          </span>
+          <button
+            onClick={() => setNearestResult(null)}
+            style={{
+              background: 'rgba(0,0,0,0.2)',
+              border: 'none',
+              borderRadius: '50%',
+              color: 'white',
+              width: '22px',
+              height: '22px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0
+            }}
+            title="とじる"
+          >
+            ✕
+          </button>
+        </div>
+      )}
       {!homePos && !isSettingHome && (
         <div style={{
           position: 'fixed',
@@ -505,6 +646,29 @@ function App() {
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             />
             <MapUpdater center={mapCenter} />
+            {nearestResult && (
+              <>
+                <Polyline
+                  positions={[nearestResult.origin, [nearestResult.hazard.lat, nearestResult.hazard.lng]]}
+                  pathOptions={{
+                    color: nearestResult.categoryName === 'ひなんじょ' ? '#2ECC71' : '#E67E22',
+                    dashArray: '8, 8',
+                    weight: 4,
+                    opacity: 0.8
+                  }}
+                />
+                <Circle
+                  center={[nearestResult.hazard.lat, nearestResult.hazard.lng]}
+                  radius={40}
+                  pathOptions={{
+                    color: nearestResult.categoryName === 'ひなんじょ' ? '#2ECC71' : '#E67E22',
+                    fillColor: nearestResult.categoryName === 'ひなんじょ' ? '#2ECC71' : '#E67E22',
+                    fillOpacity: 0.35,
+                    weight: 2
+                  }}
+                />
+              </>
+            )}
             {homePos && (
               <Marker position={homePos} icon={getHomeIcon()}>
                 <Popup>🏠 いつもの ばしょ</Popup>

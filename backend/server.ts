@@ -28,6 +28,19 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// Haversine formula for calculating distance in meters between two lat/lng points
+function calculateDistanceMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000; // Earth radius in meters
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c);
+}
+
 // Get all hazards
 app.get('/api/hazards', (req, res) => {
   fs.readFile(DATA_FILE, 'utf8', (err, data) => {
@@ -35,6 +48,45 @@ app.get('/api/hazards', (req, res) => {
       return res.status(500).send('Error reading data file');
     }
     res.json(JSON.parse(data));
+  });
+});
+
+// Get nearby hazards sorted by distance (GIS Spatial Query)
+app.get('/api/hazards/nearby', (req, res) => {
+  const lat = parseFloat(req.query.lat as string);
+  const lng = parseFloat(req.query.lng as string);
+  const type = req.query.type as string;
+  const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+  const maxDistance = req.query.maxDistance ? parseFloat(req.query.maxDistance as string) : null;
+
+  if (isNaN(lat) || isNaN(lng)) {
+    return res.status(400).json({ error: 'Valid lat and lng query parameters are required' });
+  }
+
+  fs.readFile(DATA_FILE, 'utf8', (err, data) => {
+    if (err) return res.status(500).send('Error reading data file');
+    let hazards = JSON.parse(data);
+
+    if (type) {
+      hazards = hazards.filter((h: any) => h.type === type);
+    }
+
+    const withDistance = hazards.map((h: any) => {
+      const distanceMeters = calculateDistanceMeters(lat, lng, h.lat, h.lng);
+      return {
+        ...h,
+        distanceMeters,
+        walkTimeMinutes: Math.max(1, Math.round(distanceMeters / 80)) // 80m/min as standard walking speed
+      };
+    });
+
+    let filtered = withDistance;
+    if (maxDistance !== null) {
+      filtered = filtered.filter((h: any) => h.distanceMeters <= maxDistance);
+    }
+
+    filtered.sort((a: any, b: any) => a.distanceMeters - b.distanceMeters);
+    res.json(filtered.slice(0, limit));
   });
 });
 
