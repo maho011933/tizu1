@@ -10,6 +10,7 @@ import { pool, isDbConnected, initializeDatabase, calculateHaversineDistanceMete
 import type { HazardData } from './db.js';
 import { buildChildFriendlyAlert } from './alerts.js';
 import type { AlertNotification, LocationTriggerResponse } from './alerts.js';
+import { generateHazardStatistics } from './stats.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -286,6 +287,59 @@ app.get('/api/alerts/stream', (req, res) => {
     clearInterval(keepAlive);
     sseClients.delete(res);
   });
+});
+
+/**
+ * 📊 エリアごとの危険度統計データ取得API
+ * GET /api/hazards/stats
+ * クエリパラメータ:
+ *   lat, lng, radius (任意: 指定位置の半径内のみ集計)
+ *   gridSize (任意: ホットスポット分割のメッシュ解像度、度単位)
+ */
+app.get('/api/hazards/stats', async (req, res) => {
+  try {
+    const latStr = req.query.lat as string | undefined;
+    const lngStr = req.query.lng as string | undefined;
+    const radiusStr = req.query.radius as string | undefined;
+    const gridSizeStr = req.query.gridSize as string | undefined;
+
+    const lat = latStr !== undefined ? parseFloat(latStr) : undefined;
+    const lng = lngStr !== undefined ? parseFloat(lngStr) : undefined;
+    const radius = radiusStr !== undefined ? parseFloat(radiusStr) : undefined;
+    const gridSize = gridSizeStr !== undefined ? parseFloat(gridSizeStr) : undefined;
+
+    let allHazards: HazardData[] = [];
+
+    if (isDbConnected()) {
+      const result = await pool.query(`
+        SELECT 
+          id,
+          type,
+          description,
+          image_url AS "imageUrl",
+          ST_Y(geom) AS lat,
+          ST_X(geom) AS lng,
+          COALESCE(comments, '[]'::jsonb) AS comments
+        FROM hazards
+        ORDER BY id ASC;
+      `);
+      allHazards = result.rows;
+    } else {
+      allHazards = readLocalHazards();
+    }
+
+    const stats = generateHazardStatistics(allHazards, { lat, lng, radius, gridSize });
+    return res.json(stats);
+  } catch (error: any) {
+    console.error('Error in /api/hazards/stats:', error);
+    res.status(500).json({ error: '統計データの取得に失敗しました', details: error.message });
+  }
+});
+
+app.get('/api/hazards/statistics', async (req, res) => {
+  // Alias for /api/hazards/stats
+  const query = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+  res.redirect(307, `/api/hazards/stats${query}`);
 });
 
 /**

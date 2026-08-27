@@ -73,13 +73,13 @@ graph TD
 | セキュアな画像アップロード（クラウドストレージ連携等）の対応 | 中 | 🔴 未着手 | AWS S3 または GCP Cloud Storage への移行検討 |
 
 #### **Dさん：ジオクエリ & 通知トリガー**
-*   **現在の状況:** PostGIS空間演算による半径検索API（`/api/hazards/nearby`）および接近通知トリガーAPI（`/api/alerts/trigger`、SSEストリーム `/api/alerts/stream`）を実装完了。
+*   **現在の状況:** PostGIS空間演算による半径検索API（`/api/hazards/nearby`）、接近通知トリガーAPI（`/api/alerts/trigger`）、およびエリア危険度統計API（`/api/hazards/stats`）をすべて実装完了。
 
 | タスク内容 | 優先度 | 進捗 | 備考 |
 | :--- | :---: | :---: | :--- |
 | PostGISの空間演算（`ST_DWithin`等）を用いた「半径Xm以内の危険箇所取得API」の実装 | 高 | 🟢 完了 | `/api/hazards/nearby?lat=...&lng=...&radius=...` を実装・動作確認済み |
 | ユーザーの現在位置を受け取り、接近アラートを発火する通知トリガーAPI | 高 | 🟢 完了 | `POST /api/alerts/trigger` および SSE (`GET /api/alerts/stream`) を実装・動作確認済み |
-| エリアごとの危険度統計データ（集計結果）を返すAPIの構築 | 中 | 🔴 未着手 | 例：町丁ごとの危険報告数ランキングなど |
+| エリアごとの危険度統計データ（集計結果）を返すAPIの構築 | 中 | 🟢 完了 | `GET /api/hazards/stats`（カテゴリ別集計・メッシュ別ホットスポット）を実装・動作確認済み |
 
 ---
 
