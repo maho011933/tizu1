@@ -69,15 +69,15 @@ graph TD
 | :--- | :---: | :---: | :--- |
 | PostgreSQL + PostGIS データベースサーバーの選定と立ち上げ | 高 | 🟢 完了 | Docker (`docker-compose.yml`) + PostGIS 15 設定完了 |
 | 危険箇所データ・ユーザーデータ・コメントデータのスキーマ設計と移行 | 高 | 🟢 完了 | [init.sql](file:///C:/Users/denshi25/Desktop/ayu/backend/db/init.sql) にてスキーマ作成と既存JSONデータの移行SQL用意 |
-| APIのデータベース接続処理の実装（JSONファイルからのリファクタリング） | 高 | 🔴 未着手 | [server.ts](file:///C:/Users/denshi36/Desktop/maho/backend/server.ts) のデータ操作処理の書き換え |
+| APIのデータベース接続処理の実装（JSONファイルからのリファクタリング） | 高 | 🟢 完了 | [server.ts](file:///C:/Users/denshi25/Desktop/ayu/backend/server.ts) のデータ操作処理を PostgreSQL/PostGIS に書き換え完了（JSONフォールバック付き） |
 | セキュアな画像アップロード（クラウドストレージ連携等）の対応 | 中 | 🔴 未着手 | AWS S3 または GCP Cloud Storage への移行検討 |
 
 #### **Dさん：ジオクエリ & 通知トリガー**
-*   **現在の状況:** 基礎的なCRUDのみ稼働。位置情報の空間クエリは未実装。
+*   **現在の状況:** PostGIS空間クエリ (`ST_DWithin`, `ST_DistanceSphere`) を用いた半径検索APIを実装完了。
 
 | タスク内容 | 優先度 | 進捗 | 備考 |
 | :--- | :---: | :---: | :--- |
-| PostGISの空間演算（`ST_DWithin`等）を用いた「半径Xm以内の危険箇所取得API」の実装 | 高 | 🔴 未着手 | `/api/hazards/nearby?lat=...&lng=...&radius=...` の設計 |
+| PostGISの空間演算（`ST_DWithin`等）を用いた「半径Xm以内の危険箇所取得API」の実装 | 高 | 🟢 完了 | `/api/hazards/nearby?lat=...&lng=...&radius=...` の実装完了 |
 | ユーザーの現在位置を受け取り、接近アラートを発火する通知トリガーAPI | 高 | 🔴 未着手 | WebSocketまたはSSE（Server-Sent Events）の検討 |
 | エリアごとの危険度統計データ（集計結果）を返すAPIの構築 | 中 | 🔴 未着手 | 例：町丁ごとの危険報告数ランキングなど |
 
