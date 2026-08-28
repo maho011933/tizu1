@@ -70,7 +70,7 @@ graph TD
 | PostgreSQL + PostGIS データベースサーバーの選定と立ち上げ | 高 | 🟢 完了 | Docker (`docker-compose.yml`) + PostGIS 15 設定完了 |
 | 危険箇所データ・ユーザーデータ・コメントデータのスキーマ設計と移行 | 高 | 🟢 完了 | [init.sql](file:///C:/Users/denshi25/Desktop/ayu/backend/db/init.sql) にてスキーマ作成と既存JSONデータの移行SQL用意 |
 | APIのデータベース接続処理の実装（JSONファイルからのリファクタリング） | 高 | 🟢 完了 | [server.ts](file:///C:/Users/denshi25/Desktop/ayu/backend/server.ts) のデータ操作処理を PostgreSQL/PostGIS に書き換え完了（JSONフォールバック付き） |
-| セキュアな画像アップロード（クラウドストレージ連携等）の対応 | 中 | 🔴 未着手 | AWS S3 または GCP Cloud Storage への移行検討 |
+| セキュアな画像アップロード（クラウドストレージ連携等）の対応 | 中 | 🟢 完了 | [storageService.ts](file:///C:/Users/denshi25/Desktop/ayu/backend/services/storageService.ts) にて AWS S3 / Cloudinary / ローカル検証保存の切り替え層を実装 |
 
 #### **Dさん：ジオクエリ & 通知トリガー**
 *   **現在の状況:** PostGIS空間クエリ (`ST_DWithin`, `ST_DistanceSphere`) を用いた半径検索APIを実装完了。

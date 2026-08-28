@@ -6,6 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
 import { pool, query } from './db/index.js';
+import { uploadImage } from './services/storageService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,16 +21,30 @@ if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }
 
-// Multer setup for image uploads
+// Multer setup with strict file type and size validation
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, UPLOADS_DIR);
   },
   filename: (req, file, cb) => {
-    cb(null, Date.now() + path.extname(file.originalname));
+    const ext = path.extname(file.originalname).toLowerCase();
+    const safeName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}${ext}`;
+    cb(null, safeName);
   }
 });
-const upload = multer({ storage });
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (allowedMimeTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only JPG, PNG, GIF, and WEBP images are allowed.'));
+    }
+  }
+});
 
 app.use(cors());
 app.use(bodyParser.json());
@@ -167,7 +182,13 @@ app.get('/api/hazards/nearby', async (req, res) => {
 // Post a new hazard with image
 app.post('/api/hazards', upload.single('image'), async (req, res) => {
   const { lat, lng, type, description, dangerLevel } = req.body;
-  const imageUrl = req.file ? `http://localhost:${PORT}/uploads/${req.file.filename}` : null;
+  
+  let imageUrl: string | null = null;
+  if (req.file) {
+    const uploadResult = await uploadImage(req.file, PORT);
+    imageUrl = uploadResult.url;
+  }
+
   const latitude = parseFloat(lat);
   const longitude = parseFloat(lng);
   const danger = dangerLevel ? parseInt(dangerLevel) : 3;
@@ -281,7 +302,12 @@ app.delete('/api/hazards/:id', async (req, res) => {
 app.put('/api/hazards/:id', upload.single('image'), async (req, res) => {
   const id = parseInt(req.params.id);
   const { type, description, dangerLevel } = req.body;
-  const imageUrl = req.file ? `http://localhost:${PORT}/uploads/${req.file.filename}` : req.body.imageUrl;
+  
+  let imageUrl: string | null = req.body.imageUrl === 'null' ? null : req.body.imageUrl;
+  if (req.file) {
+    const uploadResult = await uploadImage(req.file, PORT);
+    imageUrl = uploadResult.url;
+  }
 
   if (isDbConnected) {
     try {
