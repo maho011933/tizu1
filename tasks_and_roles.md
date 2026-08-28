@@ -67,8 +67,8 @@ graph TD
 
 | タスク内容 | 優先度 | 進捗 | 備考 |
 | :--- | :---: | :---: | :--- |
-| PostgreSQL + PostGIS データベースサーバーの選定と立ち上げ | 高 | 🔴 未着手 | ローカルでの Docker または クラウドDBの準備 |
-| 危険箇所データ・ユーザーデータ・コメントデータのスキーマ設計と移行 | 高 | 🔴 未着手 | SQL定義書の作成と `hazards.json` からのデータ移行 |
+| PostgreSQL + PostGIS データベースサーバーの選定と立ち上げ | 高 | 🟢 完了 | Docker (`docker-compose.yml`) + PostGIS 15 設定完了 |
+| 危険箇所データ・ユーザーデータ・コメントデータのスキーマ設計と移行 | 高 | 🟢 完了 | [init.sql](file:///C:/Users/denshi25/Desktop/ayu/backend/db/init.sql) にてスキーマ作成と既存JSONデータの移行SQL用意 |
 | APIのデータベース接続処理の実装（JSONファイルからのリファクタリング） | 高 | 🔴 未着手 | [server.ts](file:///C:/Users/denshi36/Desktop/maho/backend/server.ts) のデータ操作処理の書き換え |
 | セキュアな画像アップロード（クラウドストレージ連携等）の対応 | 中 | 🔴 未着手 | AWS S3 または GCP Cloud Storage への移行検討 |
 
