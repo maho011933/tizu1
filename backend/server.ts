@@ -10,8 +10,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = 3001;
-const DATA_FILE = path.join(__dirname, 'data', 'hazards.json');
+const PORT = process.env.PORT || 3001;
+const DATA_FILE = process.env.HAZARDS_DATA_FILE || path.join(__dirname, 'data', 'hazards.json');
 
 // Multer setup for image uploads
 const storage = multer.diskStorage({
@@ -145,6 +145,11 @@ app.put('/api/hazards/:id', upload.single('image'), (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
-});
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
+  });
+}
+
+export { app, getImageUrl };
+export default app;
