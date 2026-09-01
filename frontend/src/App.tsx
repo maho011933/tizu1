@@ -7,7 +7,7 @@ import L from 'leaflet';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 
-let DefaultIcon = L.icon({
+const DefaultIcon = L.icon({
   iconUrl: markerIcon,
   shadowUrl: markerShadow,
   iconSize: [25, 41],
@@ -102,26 +102,57 @@ const getPickerIcon = () => {
     iconSize: [50, 60],
     iconAnchor: [25, 60],
     popupAnchor: [0, -55]
+
+    inport { getMarkerIcon, getHomeIcon, typeLabels, typeColors } from "./utils/icons";
+    import type { Hazard } from "./types";
+  
+interface LocationPickerProps {
+  isSettingHome: boolean;
+  editingHazardId: number | null;
+  newHazardPos: L.LatLng | null;
+  setHomePos: (pos: [number, number]) => void;
+  setMapCenter: (pos: [number, number]) => void;
+  setIsSettingHome: (val: boolean) => void;
+  setNewHazardPos: (pos: L.LatLng | null) => void;
+}
+
+const LocationPicker = ({
+  isSettingHome,
+  editingHazardId,
+  newHazardPos,
+  setHomePos,
+  setMapCenter,
+  setIsSettingHome,
+  setNewHazardPos
+}: LocationPickerProps) => {
+  useMapEvents({
+    click(e) {
+      if (isSettingHome) {
+        const pos: [number, number] = [e.latlng.lat, e.latlng.lng];
+        if (window.confirm('ここを いつもの ばしょに する？🏠')) {
+          setHomePos(pos);
+          localStorage.setItem('homePos', JSON.stringify(pos));
+          setIsSettingHome(false);
+          setMapCenter(pos);
+        }
+        return;
+      }
+      if (editingHazardId) return; // Don't pick new location while editing
+      setNewHazardPos(e.latlng);
+    },
+    
   });
+
+  if (isSettingHome) return null;
+
+  return newHazardPos ? (
+    <Marker position={newHazardPos} icon={getMarkerIcon('Other')}>
+      <Popup>ここにきめる！📍</Popup>
+    </Marker>
+  ) : null;
 };
 
-interface Comment {
-  id: number;
-  text: string;
-  createdAt: string;
-}
-
-interface Hazard {
-  id: number;
-  lat: number;
-  lng: number;
-  type: string;
-  level?: number;
-  timeOfDay?: string;
-  description: string;
-  imageUrl?: string | null;
-  comments?: Comment[];
-}
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 function App() {
   const [hazards, setHazards] = useState<Hazard[]>([]);
@@ -132,13 +163,13 @@ function App() {
   const [timeOfDay, setTimeOfDay] = useState<string>('all');
   const [description, setDescription] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [mapCenter, setMapCenter] = useState<[number, number]>([35.6895, 139.6917]);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [activeTab, setActiveTab] = useState<'map' | 'list' | 'form'>('map');
   const [homePos, setHomePos] = useState<[number, number] | null>(() => {
     const saved = localStorage.getItem('homePos');
     return saved ? JSON.parse(saved) : null;
   });
+  const [mapCenter, setMapCenter] = useState<[number, number]>(() => homePos || [35.6895, 139.6917]);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [activeTab, setActiveTab] = useState<'map' | 'list' | 'form'>('map');
   const [isSettingHome, setIsSettingHome] = useState(false);
   const [myHazardIds, setMyHazardIds] = useState<number[]>(() => {
     const saved = localStorage.getItem('myHazardIds');
@@ -212,10 +243,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    // If home is set, use it. Otherwise try geolocation.
-    if (homePos) {
-      setMapCenter(homePos);
-    } else if ("geolocation" in navigator) {
+    if (!homePos && "geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const pos: [number, number] = [position.coords.latitude, position.coords.longitude];
@@ -227,9 +255,10 @@ function App() {
       );
     }
 
-    fetch('http://localhost:3001/api/hazards')
+    fetch(`${API_BASE_URL}/api/hazards`)
       .then(res => res.json())
       .then(data => setHazards(data));
+
   }, []);
 
   const LocationPicker = () => {
@@ -258,6 +287,8 @@ function App() {
       </Marker>
     ) : null;
   };
+=======
+  }, [homePos]);
 
   const handleStartEdit = (h: Hazard) => {
     setEditingHazardId(h.id);
@@ -316,7 +347,7 @@ function App() {
         formData.append('imageUrl', 'null');
       }
 
-      fetch(`http://localhost:3001/api/hazards/${editingHazardId}`, {
+      fetch(`${API_BASE_URL}/api/hazards/${editingHazardId}`, {
         method: 'PUT',
         body: formData
       })
@@ -337,7 +368,7 @@ function App() {
       // Create new
       formData.append('lat', newHazardPos.lat.toString());
       formData.append('lng', newHazardPos.lng.toString());
-      fetch('http://localhost:3001/api/hazards', {
+      fetch(`${API_BASE_URL}/api/hazards`, {
         method: 'POST',
         body: formData
       })
@@ -365,7 +396,7 @@ function App() {
   };
 
   const handleResolve = (id: number) => {
-    fetch(`http://localhost:3001/api/hazards/${id}`, {
+    fetch(`${API_BASE_URL}/api/hazards/${id}`, {
       method: 'DELETE'
     })
       .then(() => {
@@ -378,7 +409,7 @@ function App() {
     const text = commentTexts[hazardId];
     if (!text) return;
 
-    fetch(`http://localhost:3001/api/hazards/${hazardId}/comments`, {
+    fetch(`${API_BASE_URL}/api/hazards/${hazardId}/comments`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text })
@@ -393,22 +424,6 @@ function App() {
         }));
         setCommentTexts({ ...commentTexts, [hazardId]: '' });
       });
-  };
-
-  const typeLabels: Record<string, string> = {
-    Traffic: 'くるま・こうつう 🚗',
-    Crime: 'ふしんしゃ・ぼうはん 👮',
-    Disaster: 'じしん・かじ 🌊',
-    Lighting: 'くらみち・でんき 🌙',
-    Other: 'そのほか 🐾'
-  };
-
-  const typeColors: Record<string, { bg: string; text: string; shadow: string }> = {
-    Traffic: { bg: '#E74C3C', text: 'white', shadow: '#C0392B' },     // 赤
-    Crime: { bg: '#3498DB', text: 'white', shadow: '#2980B9' },       // 水色
-    Disaster: { bg: '#95A5A6', text: 'white', shadow: '#7F8C8D' },    // 灰色
-    Lighting: { bg: '#F1C40F', text: '#2C3E50', shadow: '#F39C12' },  // 黄色（文字は濃い色）
-    Other: { bg: '#9B59B6', text: 'white', shadow: '#8E44AD' }      // 紫（文字は白、影は濃い紫）
   };
 
   const currentStyle = typeColors[type] || typeColors.Other;
@@ -832,7 +847,15 @@ function App() {
                 </Popup>
               </Marker>
             ))}
-            <LocationPicker />
+            <LocationPicker
+              isSettingHome={isSettingHome}
+              editingHazardId={editingHazardId}
+              newHazardPos={newHazardPos}
+              setHomePos={setHomePos}
+              setMapCenter={setMapCenter}
+              setIsSettingHome={setIsSettingHome}
+              setNewHazardPos={setNewHazardPos}
+            />
           </MapContainer>
           
           {isMobile && newHazardPos && activeTab === 'map' && (
@@ -887,8 +910,8 @@ function App() {
             </div>
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
-                <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '0.5rem', fontSize: '1rem' }}>なにが あぶない？</label>
-                <select value={type} onChange={e => setType(e.target.value)} style={{ 
+                <label htmlFor="hazard-type-select" style={{ fontWeight: 'bold', display: 'block', marginBottom: '0.5rem', fontSize: '1rem' }}>なにが あぶない？</label>
+                <select id="hazard-type-select" value={type} onChange={e => setType(e.target.value)} style={{ 
                   width: '100%', 
                   padding: '0.8rem', 
                   borderRadius: '8px', 
@@ -904,6 +927,7 @@ function App() {
               </div>
 
               <div>
+
                 <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '0.5rem', fontSize: '1rem' }}>
                   どれくらい あぶない？（きけん度 1〜5）
                 </label>
@@ -986,14 +1010,18 @@ function App() {
                 <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '0.5rem', fontSize: '1rem' }}>
                   {editingHazardId ? 'しゃしん（かえるなら） 📸' : 'しゃしん 📸'}
                 </label>
+                
+                <label htmlFor="hazard-image-input" style={{ fontWeight: 'bold', display: 'block', marginBottom: '0.5rem', fontSize: '1rem' }}>しゃしん（かえるなら） 📸</label>
+
                 <input 
+                  id="hazard-image-input"
                   type="file" 
                   accept="image/*" 
                   onChange={e => setImageFile(e.target.files ? e.target.files[0] : null)} 
                   style={{ width: '100%', fontSize: '1rem' }}
                 />
               </div>
-              <div>
+     
                 <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '0.4rem', fontSize: '1rem' }}>どんな かんじ？</label>
                 
                 {/* Quick Stamp Tags */}
@@ -1020,7 +1048,11 @@ function App() {
                   ))}
                 </div>
 
+
+                <label htmlFor="hazard-desc-input" style={{ fontWeight: 'bold', display: 'block', marginBottom: '0.5rem', fontSize: '1rem' }}>どんな かんじ？</label>
+
                 <textarea 
+                  id="hazard-desc-input"
                   value={description} 
                   onChange={e => setDescription(e.target.value)} 
                   style={{ 

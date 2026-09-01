@@ -10,8 +10,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = 3001;
-const DATA_FILE = path.join(__dirname, 'data', 'hazards.json');
+const PORT = process.env.PORT || 3001;
+const DATA_FILE = process.env.HAZARDS_DATA_FILE || path.join(__dirname, 'data', 'hazards.json');
 
 // Multer setup for image uploads
 const storage = multer.diskStorage({
@@ -38,15 +38,20 @@ app.get('/api/hazards', (req, res) => {
   });
 });
 
+const getImageUrl = (req: express.Request, filename: string) => {
+  const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+  return `${baseUrl}/uploads/${filename}`;
+};
+
 // Post a new hazard with image
 app.post('/api/hazards', upload.single('image'), (req, res) => {
   const { lat, lng, type, description, level, timeOfDay } = req.body;
-  const imageUrl = req.file ? `http://localhost:3001/uploads/${req.file.filename}` : null;
+  const imageUrl = req.file ？ getImageUrl(req, req.file.filename) :null;
 
   fs.readFile(DATA_FILE, 'utf8', (err, data) => {
     if (err) return res.status(500).send('Error reading data file');
     const hazards = JSON.parse(data);
-    const newId = hazards.length > 0 ? hazards[hazards.length - 1].id + 1 : 1;
+    const newId = hazards.length > 0 ? Math.max(...hazards.map((h: any) => h.id || 0)) + 1 : 1;
     
     const newHazard = {
       id: newId,
@@ -70,7 +75,7 @@ app.post('/api/hazards', upload.single('image'), (req, res) => {
 
 // Post a comment to a hazard
 app.post('/api/hazards/:id/comments', (req, res) => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string);
   const { text } = req.body;
 
   if (!text) return res.status(400).send('Comment text is required');
@@ -103,7 +108,7 @@ app.post('/api/hazards/:id/comments', (req, res) => {
 
 // Delete a hazard (Resolve)
 app.delete('/api/hazards/:id', (req, res) => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string);
   fs.readFile(DATA_FILE, 'utf8', (err, data) => {
     if (err) return res.status(500).send('Error reading data file');
     const hazards = JSON.parse(data);
@@ -117,9 +122,9 @@ app.delete('/api/hazards/:id', (req, res) => {
 
 // Update a hazard
 app.put('/api/hazards/:id', upload.single('image'), (req, res) => {
-  const id = parseInt(req.params.id);
-  const { type, description, level, timeOfDay } = req.body;
-  const imageUrl = req.file ? `http://localhost:3001/uploads/${req.file.filename}` : req.body.imageUrl;
+  const id = parseInt(req.params.id as string);
+  const { type, description, level, timeOfDay } =req.body;
+  const imageUrl =req.file ? getImageUrl(req, req.file.filename) : req.body.imageUrl;
 
   fs.readFile(DATA_FILE, 'utf8', (err, data) => {
     if (err) return res.status(500).send('Error reading data file');
@@ -144,6 +149,11 @@ app.put('/api/hazards/:id', upload.single('image'), (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
-});
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
+  });
+}
+
+export { app, getImageUrl };
+export default app;
