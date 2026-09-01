@@ -114,10 +114,9 @@ graph TD
 
 | タスク内容 | 優先度 | 進捗 | 備考 |
 | :--- | :---: | :---: | :--- |
-| ローカル開発環境を統一するための Docker Compose 設定ファイルの作成 | 高 | 🔴 未着手 | `frontend`、`backend`、`postgres` の一括起動 |
-| GitHub Actionsを用いた自動ビルド・リンターチェック（CI）の構築 | 中 | 🔴 未着手 | プルリクエスト時の自動CI |
-| クラウド環境への自動デプロイ（CD）パイプラインの構築 | 中 | 🔴 未着手 | GCP/AWS/Render等へのホスティング設定 |
-| マップのピン表示や投稿フォーム of 動作テストコード作成とバグ管理 | 高 | 🔴 未着手 | Playwright または Cypress を用いたE2Eテスト |
+| ローカル開発環境を統一するための Docker Compose 設定ファイルの作成 | 高 | 🟢 完了 | `frontend`、`backend`、`postgres` の一括起動 |
+| GitHub Actionsを用いた自動ビルド・リンターチェック（CI）の構築 | 中 | 🟢 完了 | プルリクエスト時の自動CI |
+| マップのピン表示や投稿フォーム of 動作テストコード作成とバグ管理 | 高 | 🟢 完了 | Vitest/RTL/Supertest による自動テストと `BUG_TRACKING.md` を作成 |
 
 ---
 
