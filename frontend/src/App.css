@@ -10,6 +10,7 @@
   z-index: 10;
 }
 
+
 @keyframes marker-pulse {
   0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.6); }
   70% { transform: scale(1.08); box-shadow: 0 0 0 12px rgba(231, 76, 60, 0); }
@@ -28,6 +29,20 @@
 
 .alert-marker {
   animation: marker-alert 1s infinite;
+
+@keyframes pin-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-7px); }
+}
+
+.custom-kid-icon:hover {
+  transform: scale(1.18);
+  z-index: 999 !important;
+}
+
+.picker-kid-icon {
+  animation: pin-bounce 0.8s infinite ease-in-out;
+
 }
 
 /* Base styles for the app */

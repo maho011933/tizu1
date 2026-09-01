@@ -1,0 +1,40 @@
+services:
+  # バックエンド API (Express)
+  - type: web
+    name: me-safety-map-backend
+    env: node
+    region: singapore
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 3001
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: me-safety-map-db
+          property: connectionString
+
+  # フロントエンド (React / Vite Static Site)
+  - type: web
+    name: me-safety-map-frontend
+    env: static
+    region: singapore
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: me-safety-map-backend
+          property: url
+
+databases:
+  # PostgreSQL / PostGIS データベース
+  - name: me-safety-map-db
+    databaseName: safety_map
+    user: safety_user
+    region: singapore

@@ -1,3 +1,4 @@
+
 # Logs
 logs
 *.log
@@ -28,10 +29,19 @@ frontend/node_modules/
 backend/.env
 frontend/.env
 
+# Dependencies
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+.pnp
+.pnp.js
+
+
 # Production build outputs
 dist/
 build/
 frontend/dist/
+
 
 # Editor directories and files
 .vscode/
@@ -42,3 +52,27 @@ frontend/dist/
 *.sln
 *.sw?
 .DS_Store
+
+# Environment variables & local configs
+.env
+.env.local
+.env.*.local
+
+# Uploads and temporary data
+backend/uploads/*
+!backend/uploads/.gitkeep
+backend/__tests__/test_hazards.json
+
+# Logs & debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Editor & OS metadata
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
