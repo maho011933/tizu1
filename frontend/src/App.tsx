@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Circle, useMapEvents, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -7,7 +7,7 @@ import L from 'leaflet';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 
-let DefaultIcon = L.icon({
+const DefaultIcon = L.icon({
   iconUrl: markerIcon,
   shadowUrl: markerShadow,
   iconSize: [25, 41],
@@ -24,100 +24,152 @@ const MapUpdater = ({ center }: { center: [number, number] }) => {
   return null;
 };
 
-const getMarkerIcon = (type: string, isMine: boolean = false) => {
+const getMarkerIcon = (type: string, level: number = 3, isMine: boolean = false) => {
+  const icons: Record<string, string> = {
+    Traffic: '🚗',
+    Crime: '👮',
+    Disaster: '🌊',
+    Lighting: '🌙',
+    Other: '🐾'
+  };
   const colors: Record<string, string> = {
-    Traffic: '#E74C3C', // 赤
-    Crime: '#3498DB',   // 水色
+    Traffic: '#E74C3C',  // 赤
+    Crime: '#3498DB',    // 水色
     Disaster: '#95A5A6', // 灰色
     Lighting: '#F1C40F', // 黄色
     Other: '#9B59B6'     // 紫
   };
   const color = colors[type] || colors.Other;
-  const borderColor = isMine ? '#F1C40F' : 'white'; // 自分の投稿は金色の枠
+  const iconEmoji = icons[type] || icons.Other;
+  const borderColor = isMine ? '#F1C40F' : '#FFFFFF';
+
+  // Dynamic size based on danger level (1~5):
+  // Level 1: 28px, Level 2: 34px, Level 3: 40px, Level 4: 48px, Level 5: 56px
+  const sizes = [28, 34, 40, 48, 56];
+  const fontSizes = [14, 17, 20, 24, 28];
+  const idx = Math.max(0, Math.min(4, (level || 3) - 1));
+  const pinSize = sizes[idx];
+  const fontSize = fontSizes[idx];
+  const pointerSize = Math.max(5, Math.round(pinSize * 0.22));
+  const totalHeight = pinSize + pointerSize;
+
+  const isHighDanger = level >= 4;
 
   return L.divIcon({
-    className: 'custom-icon',
+    className: 'custom-kid-icon',
     html: `
-      <div style="position: relative;">
-        <div style="background-color: ${color}; width: 28px; height: 28px; border-radius: 50%; border: 4px solid ${borderColor}; box-shadow: 0 3px 8px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-size: 14px;"></div>
-        ${isMine ? '<div style="position: absolute; top: -15px; left: 50%; transform: translateX(-50%); background: #F1C40F; color: #2C3E50; font-size: 10px; font-weight: bold; padding: 1px 4px; border-radius: 4px; white-space: nowrap; border: 1px solid white;">じぶん</div>' : ''}
+      <div style="position: relative; display: flex; flex-direction: column; align-items: center; filter: drop-shadow(0px 4px 8px rgba(0,0,0,0.35)); transform-origin: bottom center; transition: transform 0.2s ease;">
+        ${isMine ? '<div style="position: absolute; top: -16px; background: #F1C40F; color: #2C3E50; font-size: 10px; font-weight: 800; padding: 1px 6px; border-radius: 10px; white-space: nowrap; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.2); z-index: 3;">👑 じぶん</div>' : ''}
+        ${isHighDanger ? `<div style="position: absolute; top: ${isMine ? '-30px' : '-16px'}; background: #E74C3C; color: white; font-size: 10px; font-weight: bold; padding: 1px 6px; border-radius: 10px; white-space: nowrap; border: 2px solid white; animation: pin-bounce 0.8s infinite ease-in-out; z-index: 2;">⚠️ Lv.${level}</div>` : ''}
+        <div style="background-color: ${color}; width: ${pinSize}px; height: ${pinSize}px; border-radius: 50%; border: 3.5px solid ${borderColor}; display: flex; align-items: center; justify-content: center; font-size: ${fontSize}px; line-height: 1; ${isHighDanger ? 'box-shadow: 0 0 16px ' + color + ';' : ''}">
+          ${iconEmoji}
+        </div>
+        <div style="width: 0; height: 0; border-left: ${pointerSize}px solid transparent; border-right: ${pointerSize}px solid transparent; border-top: ${pointerSize + 2}px solid ${borderColor}; margin-top: -2px;"></div>
       </div>
     `,
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
+    iconSize: [pinSize, totalHeight],
+    iconAnchor: [pinSize / 2, totalHeight],
+    popupAnchor: [0, -totalHeight + 5]
   });
 };
 
 const getHomeIcon = () => {
   return L.divIcon({
-    className: 'home-icon',
-    html: `<div style="background-color: #2C3E50; width: 36px; height: 36px; border-radius: 50%; border: 4px solid white; box-shadow: 0 3px 10px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; font-size: 20px;">🏠</div>`,
-    iconSize: [36, 36],
-    iconAnchor: [18, 18],
+    className: 'home-kid-icon',
+    html: `
+      <div style="position: relative; display: flex; flex-direction: column; align-items: center; filter: drop-shadow(0px 4px 8px rgba(0,0,0,0.35));">
+        <div style="position: absolute; top: -16px; background: #27AE60; color: white; font-size: 10px; font-weight: 800; padding: 1px 6px; border-radius: 10px; white-space: nowrap; border: 2px solid white;">マイホーム</div>
+        <div style="background-color: #2C3E50; width: 40px; height: 40px; border-radius: 50%; border: 3.5px solid white; display: flex; align-items: center; justify-content: center; font-size: 22px;">🏠</div>
+        <div style="width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 10px solid white; margin-top: -2px;"></div>
+      </div>
+    `,
+    iconSize: [40, 50],
+    iconAnchor: [20, 50],
+    popupAnchor: [0, -46]
   });
 };
 
-interface Comment {
-  id: number;
-  text: string;
-  createdAt: string;
+const getPickerIcon = () => {
+  return L.divIcon({
+    className: 'picker-kid-icon',
+    html: `
+      <div style="position: relative; display: flex; flex-direction: column; align-items: center; filter: drop-shadow(0px 4px 8px rgba(231, 76, 60, 0.4));">
+        <div style="background: #E74C3C; color: white; font-size: 11px; font-weight: bold; padding: 2px 8px; border-radius: 12px; border: 2px solid white; white-space: nowrap; margin-bottom: 2px;">ここ！📍</div>
+        <div style="background-color: #E74C3C; width: 36px; height: 36px; border-radius: 50%; border: 3px solid white; display: flex; align-items: center; justify-content: center; font-size: 18px;">🎯</div>
+        <div style="width: 0; height: 0; border-left: 7px solid transparent; border-right: 7px solid transparent; border-top: 9px solid white; margin-top: -2px;"></div>
+      </div>
+    `,
+    iconSize: [50, 60],
+    iconAnchor: [25, 60],
+    popupAnchor: [0, -55]
+
+    inport { getMarkerIcon, getHomeIcon, typeLabels, typeColors } from "./utils/icons";
+    import type { Hazard } from "./types";
+  
+interface LocationPickerProps {
+  isSettingHome: boolean;
+  editingHazardId: number | null;
+  newHazardPos: L.LatLng | null;
+  setHomePos: (pos: [number, number]) => void;
+  setMapCenter: (pos: [number, number]) => void;
+  setIsSettingHome: (val: boolean) => void;
+  setNewHazardPos: (pos: L.LatLng | null) => void;
 }
 
-interface AiAdvice {
-  forKids: string;
-  forAdults: string;
-  isMock?: boolean;
-}
+const LocationPicker = ({
+  isSettingHome,
+  editingHazardId,
+  newHazardPos,
+  setHomePos,
+  setMapCenter,
+  setIsSettingHome,
+  setNewHazardPos
+}: LocationPickerProps) => {
+  useMapEvents({
+    click(e) {
+      if (isSettingHome) {
+        const pos: [number, number] = [e.latlng.lat, e.latlng.lng];
+        if (window.confirm('ここを いつもの ばしょに する？🏠')) {
+          setHomePos(pos);
+          localStorage.setItem('homePos', JSON.stringify(pos));
+          setIsSettingHome(false);
+          setMapCenter(pos);
+        }
+        return;
+      }
+      if (editingHazardId) return; // Don't pick new location while editing
+      setNewHazardPos(e.latlng);
+    },
+    
+  });
 
-interface Hazard {
-  id: number;
-  lat: number;
-  lng: number;
-  type: string;
-  description: string;
-  imageUrl?: string | null;
-  comments?: Comment[];
-  aiAdvice?: AiAdvice;
-}
+  if (isSettingHome) return null;
 
-interface AiAssistPreview {
-  categoryJapanese: string;
-  dangerLevel: number;
-  suggestedDescription: string;
-  forKidsSummary: string;
-  keywords: string[];
-  reason: string;
-}
+  return newHazardPos ? (
+    <Marker position={newHazardPos} icon={getMarkerIcon('Other')}>
+      <Popup>ここにきめる！📍</Popup>
+    </Marker>
+  ) : null;
+};
 
-interface AreaSummary {
-  summaryTitle: string;
-  forKidsSummary: string;
-  forAdultsSummary: string;
-  keyPoints: string[];
-}
-
-interface ChatMessage {
-  sender: 'user' | 'bot';
-  text: string;
-  adultText?: string;
-}
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 function App() {
   const [hazards, setHazards] = useState<Hazard[]>([]);
   const [newHazardPos, setNewHazardPos] = useState<L.LatLng | null>(null);
   const [editingHazardId, setEditingHazardId] = useState<number | null>(null);
   const [type, setType] = useState('Traffic');
+  const [level, setLevel] = useState<number>(3);
+  const [timeOfDay, setTimeOfDay] = useState<string>('all');
   const [description, setDescription] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [isAiAssisting, setIsAiAssisting] = useState(false);
-  const [aiAssistPreview, setAiAssistPreview] = useState<AiAssistPreview | null>(null);
-  const [mapCenter, setMapCenter] = useState<[number, number]>([35.6895, 139.6917]);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [activeTab, setActiveTab] = useState<'map' | 'list' | 'form'>('map');
   const [homePos, setHomePos] = useState<[number, number] | null>(() => {
     const saved = localStorage.getItem('homePos');
     return saved ? JSON.parse(saved) : null;
   });
+  const [mapCenter, setMapCenter] = useState<[number, number]>(() => homePos || [35.6895, 139.6917]);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [activeTab, setActiveTab] = useState<'map' | 'list' | 'form'>('map');
   const [isSettingHome, setIsSettingHome] = useState(false);
   const [myHazardIds, setMyHazardIds] = useState<number[]>(() => {
     const saved = localStorage.getItem('myHazardIds');
@@ -125,6 +177,48 @@ function App() {
   });
   const [commentTexts, setCommentTexts] = useState<Record<number, string>>({});
   const [selectedHazardId, setSelectedHazardId] = useState<number | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [showHeatmap, setShowHeatmap] = useState<boolean>(true);
+  const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' } | null>(null);
+
+  const showToast = (message: string, type: 'error' | 'success' = 'error') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3800);
+  };
+
+  const stampTags = [
+    '＃くるまがはやすい',
+    '＃とびだしちゅうい',
+    '＃みちがくらい',
+    '＃みずたまり・かわ',
+    '＃ふしんしゃ・こえかけ',
+    '＃こうじちゅう・だんさ'
+  ];
+
+  const handleAddTag = (tag: string) => {
+    if (description.includes(tag)) return;
+    setDescription(prev => prev ? `${prev} ${tag}` : tag);
+  };
+
+  const timeLabels: Record<string, string> = {
+    day: '☀️ あさ・ひる',
+    evening: '🌆 ゆうがた',
+    night: '🌙 よる',
+    all: '⏰ いちにちじゅう'
+  };
+
+  const filterCategories = [
+    { key: 'All', label: 'ぜんぶ 🌈', color: '#2C3E50', text: 'white' },
+    { key: 'Traffic', label: 'くるま 🚗', color: '#E74C3C', text: 'white' },
+    { key: 'Crime', label: 'ふしんしゃ 👮', color: '#3498DB', text: 'white' },
+    { key: 'Disaster', label: 'じしん・かじ 🌊', color: '#95A5A6', text: 'white' },
+    { key: 'Lighting', label: 'くらみち 🌙', color: '#F1C40F', text: '#2C3E50' },
+    { key: 'Other', label: 'そのほか 🐾', color: '#9B59B6', text: 'white' }
+  ];
+
+  const filteredHazards = selectedCategory === 'All' 
+    ? hazards 
+    : hazards.filter(h => h.type === selectedCategory);
 
   // AI Area Summary Modal State
   const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
@@ -165,10 +259,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    // If home is set, use it. Otherwise try geolocation.
-    if (homePos) {
-      setMapCenter(homePos);
-    } else if ("geolocation" in navigator) {
+    if (!homePos && "geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const pos: [number, number] = [position.coords.latitude, position.coords.longitude];
@@ -180,9 +271,10 @@ function App() {
       );
     }
 
-    fetch('http://localhost:3001/api/hazards')
+    fetch(`${API_BASE_URL}/api/hazards`)
       .then(res => res.json())
       .then(data => setHazards(data));
+
   }, []);
 
   const LocationPicker = () => {
@@ -206,15 +298,19 @@ function App() {
     if (isSettingHome) return null;
 
     return newHazardPos ? (
-      <Marker position={newHazardPos} icon={getMarkerIcon('Other')}>
-        <Popup>ここにきめる！📍</Popup>
+      <Marker position={newHazardPos} icon={getPickerIcon()}>
+        <Popup>ここに きめる！📍</Popup>
       </Marker>
     ) : null;
   };
+=======
+  }, [homePos]);
 
   const handleStartEdit = (h: Hazard) => {
     setEditingHazardId(h.id);
     setType(h.type);
+    setLevel(h.level || 3);
+    setTimeOfDay(h.timeOfDay || 'all');
     setDescription(h.description);
     setNewHazardPos(new L.LatLng(h.lat, h.lng));
     setImageFile(null);
@@ -228,6 +324,8 @@ function App() {
   const handleCancelEdit = () => {
     setEditingHazardId(null);
     setType('Traffic');
+    setLevel(3);
+    setTimeOfDay('all');
     setDescription('');
     setNewHazardPos(null);
     setImageFile(null);
@@ -239,82 +337,99 @@ function App() {
     e.preventDefault();
     if (!newHazardPos) {
       if (isMobile) setActiveTab('map');
-      return alert('ちずの うえで、あぶない ばしょを ぽちっと おしてね！📍');
+      showToast('📍 まず ちずの あぶない ばしょを ぽちっと おしてね！', 'error');
+      return;
+    }
+
+    if (!description.trim()) {
+      showToast('✍️ 「どんな かんじ？」に あぶない りゆうを かいてね！', 'error');
+      return;
     }
 
     const formData = new FormData();
     formData.append('lat', newHazardPos.lat.toString());
     formData.append('lng', newHazardPos.lng.toString());
     formData.append('type', type);
+    formData.append('level', level.toString());
+    formData.append('timeOfDay', timeOfDay);
     formData.append('description', description);
     if (imageFile) {
       formData.append('image', imageFile);
     }
 
     if (editingHazardId) {
-      fetch(`http://localhost:3001/api/hazards/${editingHazardId}`, {
+      // Update existing
+      const currentHazard = hazards.find(h => h.id === editingHazardId);
+      if (currentHazard && !imageFile && currentHazard.imageUrl) {
+        formData.append('imageUrl', currentHazard.imageUrl);
+      } else if (!imageFile) {
+        formData.append('imageUrl', 'null');
+      }
+
+      fetch(`${API_BASE_URL}/api/hazards/${editingHazardId}`, {
         method: 'PUT',
         body: formData
       })
-        .then(res => res.json())
-        .then(updated => {
-          setHazards(hazards.map(h => h.id === editingHazardId ? updated : h));
-          handleCancelEdit();
-          alert('ほうこくを なおしたよ！✨');
+        .then(res => {
+          if (!res.ok) throw new Error('Failed');
+          return res.json();
         })
-        .catch(err => {
-          console.error(err);
-          alert('しっぱいしちゃった... もういちど やってみてね。');
+        .then(updatedHazard => {
+          setHazards(hazards.map(h => h.id === editingHazardId ? updatedHazard : h));
+          handleCancelEdit();
+          showToast('✨ ほうこくを なおしたよ！', 'success');
+          if (isMobile) setActiveTab('list');
+        })
+        .catch(() => {
+          showToast('💦 うまく おくれなかったよ。もういちど ためしてね！', 'error');
         });
     } else {
-      fetch('http://localhost:3001/api/hazards', {
+      // Create new
+      formData.append('lat', newHazardPos.lat.toString());
+      formData.append('lng', newHazardPos.lng.toString());
+      fetch(`${API_BASE_URL}/api/hazards`, {
         method: 'POST',
         body: formData
       })
-        .then(res => res.json())
-        .then(newHazard => {
-          setHazards([...hazards, newHazard]);
-          const newMyIds = [...myHazardIds, newHazard.id];
-          setMyHazardIds(newMyIds);
-          localStorage.setItem('myHazardIds', JSON.stringify(newMyIds));
+        .then(res => {
+          if (!res.ok) throw new Error('Failed');
+          return res.json();
+        })
+        .then(addedHazard => {
+          setHazards([...hazards, addedHazard]);
+          const newIds = [...myHazardIds, addedHazard.id];
+          setMyHazardIds(newIds);
+          localStorage.setItem('myHazardIds', JSON.stringify(newIds));
+          setNewHazardPos(null);
+          setLevel(3);
+          setTimeOfDay('all');
           setDescription('');
           setNewHazardPos(null);
           setImageFile(null);
-          setAiAssistPreview(null);
-          if (isMobile) setActiveTab('map');
-          alert('おしえてくれて ありがとう！ ちずに のせたよ✨');
+          showToast('🎉 ほうこく できたよ！ ありがとう！', 'success');
+          if (isMobile) setActiveTab('list');
         })
-        .catch(err => {
-          console.error(err);
-          alert('しっぱいしちゃった... もういちど やってみてね。');
+        .catch(() => {
+          showToast('💦 うまく おくれなかったよ。もういちど ためしてね！', 'error');
         });
     }
   };
 
   const handleResolve = (id: number) => {
-    if (window.confirm('あぶないのが なおったかな？ かんりょうに しますか？✨')) {
-      fetch(`http://localhost:3001/api/hazards/${id}`, {
-        method: 'DELETE'
-      })
-        .then(() => {
-          setHazards(hazards.filter(h => h.id !== id));
-          const newMyIds = myHazardIds.filter(myId => myId !== id);
-          setMyHazardIds(newMyIds);
-          localStorage.setItem('myHazardIds', JSON.stringify(newMyIds));
-          alert('かんりょうに したよ！ まちが 安全になったね🎉');
-        })
-        .catch(err => {
-          console.error(err);
-          alert('しっぱいしちゃった... もういちど やってみてね。');
-        });
-    }
+    fetch(`${API_BASE_URL}/api/hazards/${id}`, {
+      method: 'DELETE'
+    })
+      .then(() => {
+        setHazards(hazards.filter(h => h.id !== id));
+        if (editingHazardId === id) handleCancelEdit();
+      });
   };
 
   const handlePostComment = (hazardId: number) => {
     const text = commentTexts[hazardId];
     if (!text) return;
 
-    fetch(`http://localhost:3001/api/hazards/${hazardId}/comments`, {
+    fetch(`${API_BASE_URL}/api/hazards/${hazardId}/comments`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text })
@@ -331,137 +446,6 @@ function App() {
       });
   };
 
-  const handleAiAssist = async () => {
-    if (!description && !imageFile) {
-      return alert('ひと言メモを かくか、しゃしんを えらんでから AIおたすけボタンを おしてね！');
-    }
-    setIsAiAssisting(true);
-    try {
-      const formData = new FormData();
-      formData.append('text', description);
-      if (imageFile) {
-        formData.append('image', imageFile);
-      }
-      const res = await fetch('http://localhost:3001/api/ai/assist', {
-        method: 'POST',
-        body: formData
-      });
-      const data = await res.json();
-      if (data.suggestedDescription) {
-        setDescription(data.suggestedDescription);
-      }
-      if (data.suggestedType) {
-        const typeMap: Record<string, string> = {
-          '工事中': 'Traffic',
-          '不審者': 'Crime',
-          '事故多発': 'Traffic',
-          '暗い道': 'Lighting',
-          '急な坂・階段': 'Disaster',
-          'Traffic': 'Traffic',
-          'Crime': 'Crime',
-          'Disaster': 'Disaster',
-          'Lighting': 'Lighting',
-          'Other': 'Other'
-        };
-        if (typeMap[data.suggestedType]) {
-          setType(typeMap[data.suggestedType]);
-        }
-      }
-
-      setAiAssistPreview({
-        categoryJapanese: data.categoryJapanese || 'そのほか',
-        dangerLevel: data.dangerLevel || 3,
-        suggestedDescription: data.suggestedDescription || description,
-        forKidsSummary: data.forKidsSummary || 'きをつけて とおってね！',
-        keywords: data.keywords || [],
-        reason: data.reason || 'AI判定を行いました。'
-      });
-    } catch (err) {
-      console.error(err);
-      alert('AIアシストに しっぱいしました');
-    } finally {
-      setIsAiAssisting(false);
-    }
-  };
-
-  const handleOpenAreaSummary = async () => {
-    setIsSummaryModalOpen(true);
-    setIsLoadingSummary(true);
-    try {
-      const res = await fetch('http://localhost:3001/api/ai/summary', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ hazards })
-      });
-      const data = await res.json();
-      setAreaSummary(data);
-    } catch (err) {
-      console.error(err);
-      setAreaSummary({
-        summaryTitle: '地域あんぜんサマリー',
-        forKidsSummary: 'みんなで あんぜんに きをつけて あるこうね！',
-        forAdultsSummary: '周辺の危険箇所に留意し、見守りをお願いします。',
-        keyPoints: ['交通量の多い場所に注意', '暗い道は保護者と一緒に']
-      });
-    } finally {
-      setIsLoadingSummary(false);
-    }
-  };
-
-  const handleSendChatMessage = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!chatInput.trim() || isChatSending) return;
-
-    const userQ = chatInput.trim();
-    setChatInput('');
-    setChatMessages(prev => [...prev, { sender: 'user', text: userQ }]);
-    setIsChatSending(true);
-
-    try {
-      const res = await fetch('http://localhost:3001/api/ai/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: userQ, hazards })
-      });
-      const data = await res.json();
-      setChatMessages(prev => [
-        ...prev,
-        {
-          sender: 'bot',
-          text: data.answerForKids || 'きをつけて とおろうね！',
-          adultText: data.answerForAdults
-        }
-      ]);
-    } catch (err) {
-      console.error(err);
-      setChatMessages(prev => [
-        ...prev,
-        {
-          sender: 'bot',
-          text: 'あぶないところには ちかづかないで、大人のひとと いっしょにあるこうね！'
-        }
-      ]);
-    } finally {
-      setIsChatSending(false);
-    }
-  };
-
-  const typeLabels: Record<string, string> = {
-    Traffic: 'くるま・こうつう 🚗',
-    Crime: 'ふしんしゃ・ぼうはん 👮',
-    Disaster: 'じしん・かじ 🌊',
-    Lighting: 'くらみち・でんき 🌙',
-    Other: 'そのほか 🐾'
-  };
-
-  const typeColors: Record<string, { bg: string; text: string; shadow: string }> = {
-    Traffic: { bg: '#E74C3C', text: 'white', shadow: '#C0392B' },     // 赤
-    Crime: { bg: '#3498DB', text: 'white', shadow: '#2980B9' },       // 水色
-    Disaster: { bg: '#95A5A6', text: 'white', shadow: '#7F8C8D' },    // 灰色
-    Lighting: { bg: '#F1C40F', text: '#2C3E50', shadow: '#F39C12' },  // 黄色
-    Other: { bg: '#9B59B6', text: 'white', shadow: '#8E44AD' }      // 紫
-  };
-
   const currentStyle = typeColors[type] || typeColors.Other;
 
   return (
@@ -473,7 +457,31 @@ function App() {
       backgroundColor: '#F0F4F8',
       position: 'relative'
     }}>
-      {/* Header */}
+      {/* Hiragana Toast Notification */}
+      {toast && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 3000,
+          background: toast.type === 'error' ? '#E74C3C' : '#2ECC71',
+          color: 'white',
+          padding: '0.8rem 1.6rem',
+          borderRadius: '50px',
+          fontWeight: 'bold',
+          fontSize: isMobile ? '0.85rem' : '1rem',
+          boxShadow: '0 8px 25px rgba(0,0,0,0.35)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.6rem',
+          whiteSpace: 'nowrap',
+          border: '2px solid white'
+        }}>
+          <span>{toast.message}</span>
+        </div>
+      )}
+
       <header style={{ 
         padding: isMobile ? '0.6rem 1rem' : '0.8rem 1.5rem', 
         background: '#2C3E50', 
@@ -539,6 +547,84 @@ function App() {
           </button>
         </div>
       </header>
+      
+      {/* Category Filter Bar */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.5rem',
+        padding: isMobile ? '0.6rem 0.8rem' : '0.75rem 1.5rem',
+        background: 'white',
+        borderBottom: '1px solid #E2E8F0',
+        overflowX: 'auto',
+        whiteSpace: 'nowrap',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.03)',
+        zIndex: 900
+      }}>
+        <span style={{ fontSize: isMobile ? '0.8rem' : '0.85rem', fontWeight: 'bold', color: '#64748B', display: 'flex', alignItems: 'center', gap: '0.3rem', marginRight: '0.2rem', flexShrink: 0 }}>
+          🔍 <span>しぼりこみ:</span>
+        </span>
+        {filterCategories.map(cat => {
+          const isSelected = selectedCategory === cat.key;
+          const count = cat.key === 'All' ? hazards.length : hazards.filter(h => h.type === cat.key).length;
+          return (
+            <button
+              key={cat.key}
+              onClick={() => setSelectedCategory(cat.key)}
+              style={{
+                background: isSelected ? cat.color : '#F1F5F9',
+                color: isSelected ? (cat.text || 'white') : '#475569',
+                border: isSelected ? `2px solid ${cat.color}` : '2px solid transparent',
+                borderRadius: '20px',
+                padding: isMobile ? '0.35rem 0.7rem' : '0.45rem 1rem',
+                fontSize: isMobile ? '0.8rem' : '0.9rem',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                flexShrink: 0,
+                transition: 'all 0.2s ease',
+                boxShadow: isSelected ? '0 3px 8px rgba(0,0,0,0.18)' : 'none',
+                transform: isSelected ? 'scale(1.03)' : 'scale(1)'
+              }}
+            >
+              <span>{cat.label}</span>
+              <span style={{
+                background: isSelected ? 'rgba(255,255,255,0.3)' : '#E2E8F0',
+                color: isSelected ? (cat.text || 'white') : '#64748B',
+                borderRadius: '10px',
+                padding: '1px 6px',
+                fontSize: '0.75rem'
+              }}>
+                {count}
+              </span>
+            </button>
+          );
+        })}
+        <div style={{ width: '1px', height: '24px', background: '#CBD5E1', margin: '0 0.2rem', flexShrink: 0 }} />
+        <button
+          onClick={() => setShowHeatmap(!showHeatmap)}
+          style={{
+            background: showHeatmap ? '#E74C3C' : '#94A3B8',
+            color: 'white',
+            border: 'none',
+            borderRadius: '20px',
+            padding: isMobile ? '0.35rem 0.7rem' : '0.45rem 1rem',
+            fontSize: isMobile ? '0.8rem' : '0.9rem',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.4rem',
+            flexShrink: 0,
+            transition: 'all 0.2s ease',
+            boxShadow: showHeatmap ? '0 3px 8px rgba(231,76,60,0.3)' : 'none'
+          }}
+        >
+          🔥 <span>きけんゾーン: {showHeatmap ? 'ON' : 'OFF'}</span>
+        </button>
+      </div>
       
       {/* Home Selection Overlay (Welcome) */}
       {!homePos && !isSettingHome && (
@@ -623,7 +709,7 @@ function App() {
               fontSize: '0.8rem'
             }}
           >
-            キャンセル
+            やめる
           </button>
         </div>
       )}
@@ -658,11 +744,37 @@ function App() {
                 <Popup>🏠 いつもの ばしょ</Popup>
               </Marker>
             )}
-            {hazards.map(h => (
+            {showHeatmap && filteredHazards.map(h => {
+              const hLevel = h.level || 3;
+              const radius = hLevel * 30;
+              const colors: Record<string, string> = {
+                Traffic: '#E74C3C',
+                Crime: '#3498DB',
+                Disaster: '#95A5A6',
+                Lighting: '#F1C40F',
+                Other: '#9B59B6'
+              };
+              const circleColor = colors[h.type] || '#9B59B6';
+              return (
+                <Circle
+                  key={`aura-${h.id}`}
+                  center={[h.lat, h.lng]}
+                  radius={radius}
+                  pathOptions={{
+                    color: circleColor,
+                    fillColor: circleColor,
+                    fillOpacity: 0.12 + (hLevel * 0.05),
+                    weight: 1.5,
+                    dashArray: hLevel >= 4 ? '6, 6' : undefined
+                  }}
+                />
+              );
+            })}
+            {filteredHazards.map(h => (
               <Marker 
                 key={h.id} 
                 position={[h.lat, h.lng]} 
-                icon={getMarkerIcon(h.type, myHazardIds.includes(h.id))}
+                icon={getMarkerIcon(h.type, h.level || 3, myHazardIds.includes(h.id))}
                 eventHandlers={{
                   click: () => {
                     setSelectedHazardId(h.id);
@@ -675,9 +787,33 @@ function App() {
                 <Popup>
                   <div style={{ textAlign: 'center', minWidth: '150px' }}>
                     <strong style={{ fontSize: '1.1rem', color: '#2C3E50' }}>{typeLabels[h.type] || h.type}</strong><br />
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', flexWrap: 'wrap', margin: '0.3rem 0' }}>
+                      <span style={{
+                        padding: '2px 8px',
+                        borderRadius: '10px',
+                        background: (h.level || 3) >= 4 ? '#FDEDEC' : '#F1F5F9',
+                        color: (h.level || 3) >= 4 ? '#E74C3C' : '#475569',
+                        fontWeight: 'bold',
+                        fontSize: '0.75rem'
+                      }}>
+                        きけん度: Lv.{h.level || 3}
+                      </span>
+                      {h.timeOfDay && (
+                        <span style={{
+                          padding: '2px 8px',
+                          borderRadius: '10px',
+                          background: '#EDF2F7',
+                          color: '#4A5568',
+                          fontWeight: 'bold',
+                          fontSize: '0.75rem'
+                        }}>
+                          {timeLabels[h.timeOfDay] || '⏰ いちにちじゅう'}
+                        </span>
+                      )}
+                    </div>
                     <p style={{ margin: '0.8rem 0', fontSize: '1rem' }}>{h.description}</p>
                     {h.imageUrl && (
-                      <img src={h.imageUrl} alt="Hazard" style={{ width: '100%', maxHeight: '200px', objectFit: 'cover', borderRadius: '8px', marginBottom: '0.8rem' }} />
+                      <img src={h.imageUrl} alt="しゃしん" style={{ width: '100%', maxHeight: '200px', objectFit: 'cover', borderRadius: '8px', marginBottom: '0.8rem' }} />
                     )}
 
                     {/* AI Safety Advice in Popup */}
@@ -757,18 +893,26 @@ function App() {
                               fontSize: '1rem'
                             }}
                           >
-                            完了✅
+                            かんりょう✅
                           </button>
                         </div>
                       ) : (
-                        <p style={{ fontSize: '0.8rem', color: '#7F8C8D', margin: 0 }}>※ 投稿した人だけが なおせます</p>
+                        <p style={{ fontSize: '0.8rem', color: '#7F8C8D', margin: 0 }}>※ とうこうした ひとだけが なおせます</p>
                       )}
                     </div>
                   </div>
                 </Popup>
               </Marker>
             ))}
-            <LocationPicker />
+            <LocationPicker
+              isSettingHome={isSettingHome}
+              editingHazardId={editingHazardId}
+              newHazardPos={newHazardPos}
+              setHomePos={setHomePos}
+              setMapCenter={setMapCenter}
+              setIsSettingHome={setIsSettingHome}
+              setNewHazardPos={setNewHazardPos}
+            />
           </MapContainer>
           
           {/* Floating AI Chat Button */}
@@ -840,7 +984,7 @@ function App() {
           {/* Form Section */}
           <section style={{ display: (!isMobile || activeTab === 'form') ? 'block' : 'none' }}>
             <h2 style={{ color: '#2C3E50', fontSize: isMobile ? '1.2rem' : '1.3rem', borderLeft: `6px solid ${editingHazardId ? '#3498DB' : '#E74C3C'}`, paddingLeft: '0.8rem', marginBottom: '1rem' }}>
-              {editingHazardId ? 'ほうこくを なおす' : 'あぶないよ！をおしえる'}
+              {editingHazardId ? 'ほうこくを なおす' : 'あぶないよ！を おしえる'}
             </h2>
             <div style={{ backgroundColor: editingHazardId ? '#EBF5FB' : '#FFF4F4', padding: '0.8rem', borderRadius: '8px', marginBottom: '1rem', border: `1px solid ${editingHazardId ? '#D6EAF8' : '#FFDADA'}` }}>
               <p style={{ fontSize: isMobile ? '0.9rem' : '0.95rem', color: editingHazardId ? '#2980B9' : '#C0392B', margin: 0, fontWeight: 'bold', lineHeight: '1.4' }}>
@@ -849,8 +993,8 @@ function App() {
             </div>
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
-                <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '0.5rem', fontSize: '1rem' }}>なにが あぶない？</label>
-                <select value={type} onChange={e => setType(e.target.value)} style={{ 
+                <label htmlFor="hazard-type-select" style={{ fontWeight: 'bold', display: 'block', marginBottom: '0.5rem', fontSize: '1rem' }}>なにが あぶない？</label>
+                <select id="hazard-type-select" value={type} onChange={e => setType(e.target.value)} style={{ 
                   width: '100%', 
                   padding: '0.8rem', 
                   borderRadius: '8px', 
@@ -864,18 +1008,134 @@ function App() {
                   <option value="Other">そのほか 🐾</option>
                 </select>
               </div>
+
               <div>
-                <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '0.5rem', fontSize: '1rem' }}>しゃしん（かえるなら） 📸</label>
+
+                <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '0.5rem', fontSize: '1rem' }}>
+                  どれくらい あぶない？（きけん度 1〜5）
+                </label>
+                <div style={{ display: 'flex', gap: '0.3rem' }}>
+                  {[
+                    { lvl: 1, emoji: '🟡', label: '1', color: '#F1C40F', textColor: '#2C3E50' },
+                    { lvl: 2, emoji: '🟧', label: '2', color: '#E67E22', textColor: 'white' },
+                    { lvl: 3, emoji: '🔴', label: '3', color: '#E74C3C', textColor: 'white' },
+                    { lvl: 4, emoji: '🚨', label: '4', color: '#C0392B', textColor: 'white' },
+                    { lvl: 5, emoji: '💥', label: '5', color: '#900C3F', textColor: 'white' }
+                  ].map(item => {
+                    const isLvlSelected = level === item.lvl;
+                    return (
+                      <button
+                        key={item.lvl}
+                        type="button"
+                        onClick={() => setLevel(item.lvl)}
+                        style={{
+                          flex: 1,
+                          padding: '0.6rem 0.2rem',
+                          background: isLvlSelected ? item.color : '#F1F5F9',
+                          color: isLvlSelected ? item.textColor : '#475569',
+                          border: isLvlSelected ? `2px solid ${item.color}` : '2px solid transparent',
+                          borderRadius: '10px',
+                          cursor: 'pointer',
+                          fontSize: '0.85rem',
+                          fontWeight: 'bold',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: '2px',
+                          transition: 'all 0.15s ease',
+                          boxShadow: isLvlSelected ? '0 3px 6px rgba(0,0,0,0.18)' : 'none'
+                        }}
+                      >
+                        <span style={{ fontSize: '1.1rem' }}>{item.emoji}</span>
+                        <span>Lv.{item.lvl}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '0.5rem', fontSize: '1rem' }}>
+                  いつ頃 あぶない？（じかんたい）
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
+                  {[
+                    { key: 'day', label: '☀️ あさ・ひる' },
+                    { key: 'evening', label: '🌆 ゆうがた' },
+                    { key: 'night', label: '🌙 よる' },
+                    { key: 'all', label: '⏰ いちにちじゅう' }
+                  ].map(tOpt => {
+                    const isTimeSelected = timeOfDay === tOpt.key;
+                    return (
+                      <button
+                        key={tOpt.key}
+                        type="button"
+                        onClick={() => setTimeOfDay(tOpt.key)}
+                        style={{
+                          padding: '0.5rem 0.3rem',
+                          background: isTimeSelected ? '#34495E' : '#F1F5F9',
+                          color: isTimeSelected ? 'white' : '#475569',
+                          border: isTimeSelected ? '2px solid #2C3E50' : '2px solid transparent',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          fontSize: '0.85rem',
+                          fontWeight: 'bold',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        {tOpt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '0.5rem', fontSize: '1rem' }}>
+                  {editingHazardId ? 'しゃしん（かえるなら） 📸' : 'しゃしん 📸'}
+                </label>
+                
+                <label htmlFor="hazard-image-input" style={{ fontWeight: 'bold', display: 'block', marginBottom: '0.5rem', fontSize: '1rem' }}>しゃしん（かえるなら） 📸</label>
+
                 <input 
+                  id="hazard-image-input"
                   type="file" 
                   accept="image/*" 
                   onChange={e => setImageFile(e.target.files ? e.target.files[0] : null)} 
                   style={{ width: '100%', fontSize: '1rem' }}
                 />
               </div>
-              <div>
-                <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '0.5rem', fontSize: '1rem' }}>どんな かんじ？</label>
+     
+                <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '0.4rem', fontSize: '1rem' }}>どんな かんじ？</label>
+                
+                {/* Quick Stamp Tags */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginBottom: '0.5rem' }}>
+                  {stampTags.map(tag => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => handleAddTag(tag)}
+                      style={{
+                        background: '#E2E8F0',
+                        color: '#334155',
+                        border: 'none',
+                        borderRadius: '12px',
+                        padding: '0.3rem 0.6rem',
+                        fontSize: '0.75rem',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        transition: 'background 0.2s'
+                      }}
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+
+
+                <label htmlFor="hazard-desc-input" style={{ fontWeight: 'bold', display: 'block', marginBottom: '0.5rem', fontSize: '1rem' }}>どんな かんじ？</label>
+
                 <textarea 
+                  id="hazard-desc-input"
                   value={description} 
                   onChange={e => setDescription(e.target.value)} 
                   style={{ 
@@ -1005,10 +1265,19 @@ function App() {
           
           {/* List Section */}
           <section style={{ display: (!isMobile || activeTab === 'list') ? 'block' : 'none' }}>
-            <h3 style={{ color: '#2C3E50', fontSize: isMobile ? '1.2rem' : '1.2rem', marginBottom: '1rem' }}>みんなの ほうこく 🚩</h3>
+            <h3 style={{ color: '#2C3E50', fontSize: isMobile ? '1.2rem' : '1.2rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span>みんなの ほうこく 🚩</span>
+              <span style={{ fontSize: '0.85rem', color: '#7F8C8D', fontWeight: 'normal' }}>
+                ({filteredHazards.length}件)
+              </span>
+            </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {hazards.length === 0 && <p style={{ color: '#999' }}>まだ ほうこくは ありません。</p>}
-              {hazards.map(h => (
+              {filteredHazards.length === 0 && (
+                <p style={{ color: '#999', textAlign: 'center', padding: '2rem 0' }}>
+                  {selectedCategory === 'All' ? 'まだ ほうこくは ありません。' : 'この カテゴリの ほうこくは ありません。'}
+                </p>
+              )}
+              {filteredHazards.map(h => (
                 <div 
                   key={h.id} 
                   id={`hazard-${h.id}`}
@@ -1023,13 +1292,37 @@ function App() {
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                    <span style={{ 
-                      fontSize: '0.8rem', 
-                      padding: '0.2rem 0.5rem', 
-                      borderRadius: '4px', 
-                      backgroundColor: '#2C3E50',
-                      color: 'white'
-                    }}>{typeLabels[h.type]?.split(' ')[0] || h.type}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                      <span style={{ 
+                        fontSize: '0.8rem', 
+                        padding: '0.2rem 0.5rem', 
+                        borderRadius: '4px', 
+                        backgroundColor: '#2C3E50',
+                        color: 'white'
+                      }}>{typeLabels[h.type]?.split(' ')[0] || h.type}</span>
+                      <span style={{
+                        fontSize: '0.75rem',
+                        fontWeight: 'bold',
+                        padding: '0.15rem 0.5rem',
+                        borderRadius: '10px',
+                        backgroundColor: (h.level || 3) >= 4 ? '#FDEDEC' : '#E2E8F0',
+                        color: (h.level || 3) >= 4 ? '#E74C3C' : '#475569'
+                      }}>
+                        Lv.{h.level || 3}
+                      </span>
+                      {h.timeOfDay && (
+                        <span style={{
+                          fontSize: '0.75rem',
+                          fontWeight: 'bold',
+                          padding: '0.15rem 0.5rem',
+                          borderRadius: '10px',
+                          backgroundColor: '#EDF2F7',
+                          color: '#4A5568'
+                        }}>
+                          {timeLabels[h.timeOfDay] || '⏰ いちにちじゅう'}
+                        </span>
+                      )}
+                    </div>
                     {myHazardIds.includes(h.id) && (
                       <button 
                         onClick={() => handleStartEdit(h)}
@@ -1049,7 +1342,7 @@ function App() {
                   </div>
                   <p style={{ fontSize: '1rem', margin: '0.5rem 0', color: '#333', fontWeight: '500' }}>{h.description}</p>
                   {h.imageUrl && (
-                    <img src={h.imageUrl} alt="Hazard" style={{ width: '100%', maxHeight: isMobile ? '200px' : '150px', objectFit: 'cover', marginTop: '0.5rem', borderRadius: '8px' }} />
+                    <img src={h.imageUrl} alt="しゃしん" style={{ width: '100%', maxHeight: isMobile ? '200px' : '150px', objectFit: 'cover', marginTop: '0.5rem', borderRadius: '8px' }} />
                   )}
 
                   {/* AI Safety Advice in List */}
@@ -1082,7 +1375,7 @@ function App() {
                     <div style={{ display: 'flex', gap: '0.3rem' }}>
                       <input 
                         type="text" 
-                        placeholder="ありがとう！など..."
+                        placeholder="ありがとう！など コメントを かいてね..."
                         value={commentTexts[h.id] || ''}
                         onChange={e => setCommentTexts({...commentTexts, [h.id]: e.target.value})}
                         style={{ flex: 1, padding: '0.5rem', borderRadius: '8px', border: '1px solid #BDC3C7', fontSize: '0.9rem' }}

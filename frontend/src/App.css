@@ -10,6 +10,20 @@
   z-index: 10;
 }
 
+@keyframes pin-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-7px); }
+}
+
+.custom-kid-icon:hover {
+  transform: scale(1.18);
+  z-index: 999 !important;
+}
+
+.picker-kid-icon {
+  animation: pin-bounce 0.8s infinite ease-in-out;
+}
+
 /* Base styles for the app */
 body {
   margin: 0;
