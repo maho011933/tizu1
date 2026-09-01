@@ -220,6 +220,22 @@ function App() {
     ? hazards 
     : hazards.filter(h => h.type === selectedCategory);
 
+  // AI Area Summary Modal State
+  const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
+  const [isLoadingSummary, setIsLoadingSummary] = useState(false);
+  const [areaSummary, setAreaSummary] = useState<AreaSummary | null>(null);
+
+  // AI Safety Chat Modal State
+  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
+    {
+      sender: 'bot',
+      text: 'こんにちは！ ぼくは あんぜん博士だよ。まちの あんぜんや きけんについて なんでも きいてね！ 🎒'
+    }
+  ]);
+  const [chatInput, setChatInput] = useState('');
+  const [isChatSending, setIsChatSending] = useState(false);
+
   useEffect(() => {
     if (selectedHazardId && (!isMobile || activeTab === 'list')) {
       const timer = setTimeout(() => {
@@ -298,6 +314,7 @@ function App() {
     setDescription(h.description);
     setNewHazardPos(new L.LatLng(h.lat, h.lng));
     setImageFile(null);
+    setAiAssistPreview(null);
     
     if (isMobile) {
       setActiveTab('form');
@@ -312,6 +329,7 @@ function App() {
     setDescription('');
     setNewHazardPos(null);
     setImageFile(null);
+    setAiAssistPreview(null);
     if (isMobile) setActiveTab('map');
   };
 
@@ -329,11 +347,12 @@ function App() {
     }
 
     const formData = new FormData();
+    formData.append('lat', newHazardPos.lat.toString());
+    formData.append('lng', newHazardPos.lng.toString());
     formData.append('type', type);
     formData.append('level', level.toString());
     formData.append('timeOfDay', timeOfDay);
     formData.append('description', description);
-    
     if (imageFile) {
       formData.append('image', imageFile);
     }
@@ -385,6 +404,7 @@ function App() {
           setLevel(3);
           setTimeOfDay('all');
           setDescription('');
+          setNewHazardPos(null);
           setImageFile(null);
           showToast('🎉 ほうこく できたよ！ ありがとう！', 'success');
           if (isMobile) setActiveTab('list');
@@ -463,7 +483,7 @@ function App() {
       )}
 
       <header style={{ 
-        padding: isMobile ? '0.6rem 1rem' : '1rem 2rem', 
+        padding: isMobile ? '0.6rem 1rem' : '0.8rem 1.5rem', 
         background: '#2C3E50', 
         color: 'white',
         display: 'flex',
@@ -473,34 +493,59 @@ function App() {
         zIndex: 1000
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0.5rem' : '1rem' }}>
-          <span style={{ fontSize: isMobile ? '1.2rem' : '2rem' }}>🔰</span>
+          <span style={{ fontSize: isMobile ? '1.3rem' : '2rem' }}>🔰</span>
           <div>
-            <h1 style={{ margin: 0, fontSize: isMobile ? '1.1rem' : '1.5rem', fontWeight: 'bold' }}>みんなの安全マップ</h1>
+            <h1 style={{ margin: 0, fontSize: isMobile ? '1.1rem' : '1.4rem', fontWeight: 'bold' }}>みんなの安全マップ</h1>
             {!isMobile && <p style={{ margin: 0, fontSize: '0.8rem', opacity: 0.8 }}>まちの 安全を みんなで まもろう！</p>}
           </div>
         </div>
-        <button 
-          onClick={() => {
-            if (window.confirm('いつもの ばしょを かえる？🏠')) {
-              setIsSettingHome(true);
-              if (isMobile) setActiveTab('map');
-            }
-          }}
-          style={{
-            background: '#34495E',
-            color: 'white',
-            border: 'none',
-            borderRadius: '20px',
-            padding: isMobile ? '0.4rem 0.8rem' : '0.5rem 1rem',
-            cursor: 'pointer',
-            fontSize: isMobile ? '0.7rem' : '0.9rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.3rem'
-          }}
-        >
-          🏠 <span>ばしょ設定</span>
-        </button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          {/* Area Summary Button */}
+          <button
+            onClick={handleOpenAreaSummary}
+            style={{
+              background: 'linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '20px',
+              padding: isMobile ? '0.4rem 0.7rem' : '0.5rem 1rem',
+              cursor: 'pointer',
+              fontSize: isMobile ? '0.75rem' : '0.9rem',
+              fontWeight: 'bold',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.3rem',
+              boxShadow: '0 2px 8px rgba(255,107,107,0.4)'
+            }}
+          >
+            ✨ <span>地域のまとめ</span>
+          </button>
+
+          {/* Set Home Button */}
+          <button 
+            onClick={() => {
+              if (window.confirm('いつもの ばしょを かえる？🏠')) {
+                setIsSettingHome(true);
+                if (isMobile) setActiveTab('map');
+              }
+            }}
+            style={{
+              background: '#34495E',
+              color: 'white',
+              border: 'none',
+              borderRadius: '20px',
+              padding: isMobile ? '0.4rem 0.7rem' : '0.5rem 1rem',
+              cursor: 'pointer',
+              fontSize: isMobile ? '0.75rem' : '0.9rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.3rem'
+            }}
+          >
+            🏠 <span>ばしょ設定</span>
+          </button>
+        </div>
       </header>
       
       {/* Category Filter Bar */}
@@ -770,6 +815,18 @@ function App() {
                     {h.imageUrl && (
                       <img src={h.imageUrl} alt="しゃしん" style={{ width: '100%', maxHeight: '200px', objectFit: 'cover', borderRadius: '8px', marginBottom: '0.8rem' }} />
                     )}
+
+                    {/* AI Safety Advice in Popup */}
+                    {h.aiAdvice && (
+                      <div style={{ textAlign: 'left', background: '#EEF9FF', padding: '0.6rem', borderRadius: '8px', marginBottom: '0.8rem', border: '1px solid #BEE3F8' }}>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#2B6CB0', marginBottom: '0.3rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                          <span>🤖</span> あんぜん博士のアドバイス
+                        </div>
+                        <div style={{ fontSize: '0.85rem', color: '#2C5282', lineHeight: '1.4', background: 'white', padding: '0.4rem', borderRadius: '6px' }}>
+                          {h.aiAdvice.forKids}
+                        </div>
+                      </div>
+                    )}
                     
                     {/* Comments in Popup */}
                     <div style={{ textAlign: 'left', background: '#F8F9FA', padding: '0.5rem', borderRadius: '8px', marginBottom: '0.8rem' }}>
@@ -858,6 +915,32 @@ function App() {
             />
           </MapContainer>
           
+          {/* Floating AI Chat Button */}
+          <button
+            onClick={() => setIsChatModalOpen(true)}
+            style={{
+              position: 'absolute',
+              bottom: isMobile ? '80px' : '20px',
+              right: '20px',
+              zIndex: 1000,
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '30px',
+              padding: '0.7rem 1.2rem',
+              fontSize: '0.95rem',
+              fontWeight: 'bold',
+              boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem'
+            }}
+          >
+            <span style={{ fontSize: '1.2rem' }}>🤖</span>
+            <span>あんぜん博士にきく</span>
+          </button>
+
           {isMobile && newHazardPos && activeTab === 'map' && (
             <button 
               onClick={() => setActiveTab('form')}
@@ -896,7 +979,7 @@ function App() {
           display: isMobile ? (activeTab === 'map' ? 'none' : 'flex') : 'flex',
           flexDirection: 'column',
           gap: isMobile ? '1rem' : '1.5rem',
-          paddingBottom: isMobile ? '80px' : '1.5rem' // Nav bar padding
+          paddingBottom: isMobile ? '80px' : '1.5rem'
         }}>
           {/* Form Section */}
           <section style={{ display: (!isMobile || activeTab === 'form') ? 'block' : 'none' }}>
@@ -1067,7 +1150,81 @@ function App() {
                   placeholder="れい：みちが くらい、くるまが おおい"
                   required
                 />
+                
+                {/* AI Assist Trigger Button */}
+                <button
+                  type="button"
+                  onClick={handleAiAssist}
+                  disabled={isAiAssisting}
+                  style={{
+                    marginTop: '0.5rem',
+                    width: '100%',
+                    padding: '0.6rem 1rem',
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: isAiAssisting ? 'wait' : 'pointer',
+                    fontWeight: 'bold',
+                    fontSize: '0.9rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    boxShadow: '0 2px 5px rgba(0,0,0,0.15)',
+                    opacity: isAiAssisting ? 0.7 : 1
+                  }}
+                >
+                  <span>🤖</span> {isAiAssisting ? 'AIが かんがえちゅう...' : 'AIにおまかせ！ カテゴリ・危険度・せつめい自動アシスト'}
+                </button>
+
+                {/* AI Assist Result Preview Card */}
+                {aiAssistPreview && (
+                  <div style={{
+                    marginTop: '0.8rem',
+                    padding: '0.8rem',
+                    borderRadius: '8px',
+                    background: '#F5F3FF',
+                    border: '1.5px solid #DDD6FE',
+                    animation: 'fadeIn 0.3s ease-in-out'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#6D28D9', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                        <span>✨</span> AIの分析結果
+                      </span>
+                      <span style={{
+                        fontSize: '0.75rem',
+                        fontWeight: 'bold',
+                        padding: '2px 8px',
+                        borderRadius: '12px',
+                        backgroundColor: aiAssistPreview.dangerLevel >= 4 ? '#FEE2E2' : aiAssistPreview.dangerLevel === 3 ? '#FEF3C7' : '#DCFCE7',
+                        color: aiAssistPreview.dangerLevel >= 4 ? '#B91C1C' : aiAssistPreview.dangerLevel === 3 ? '#B45309' : '#15803D'
+                      }}>
+                        きけん度: {'⭐'.repeat(aiAssistPreview.dangerLevel)} (Lv.{aiAssistPreview.dangerLevel})
+                      </span>
+                    </div>
+
+                    <div style={{ fontSize: '0.85rem', color: '#4C1D95', marginBottom: '0.4rem', lineHeight: '1.4' }}>
+                      <strong>👶 こども向け:</strong> {aiAssistPreview.forKidsSummary}
+                    </div>
+
+                    <div style={{ fontSize: '0.75rem', color: '#6B7280', marginBottom: '0.4rem' }}>
+                      <strong>判定の理由:</strong> {aiAssistPreview.reason}
+                    </div>
+
+                    {aiAssistPreview.keywords.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
+                        {aiAssistPreview.keywords.map((kw, i) => (
+                          <span key={i} style={{ fontSize: '0.7rem', background: '#EDE9FE', color: '#5B21B6', padding: '1px 6px', borderRadius: '4px' }}>
+                            #{kw}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
+
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 {editingHazardId && (
                   <button type="button" onClick={handleCancelEdit} style={{ 
@@ -1077,7 +1234,7 @@ function App() {
                     color: 'white', 
                     border: 'none', 
                     borderRadius: '8px', 
-                    cursor: 'pointer',
+                    cursor: 'pointer', 
                     fontWeight: 'bold',
                     fontSize: '1.2rem',
                     boxShadow: '0 4px 0 #7F8C8D',
@@ -1092,7 +1249,7 @@ function App() {
                   color: 'white', 
                   border: 'none', 
                   borderRadius: '8px', 
-                  cursor: 'pointer',
+                  cursor: 'pointer', 
                   fontWeight: 'bold',
                   fontSize: '1.2rem',
                   boxShadow: `0 4px 0 ${editingHazardId ? '#2980B9' : currentStyle.shadow}`,
@@ -1188,6 +1345,23 @@ function App() {
                     <img src={h.imageUrl} alt="しゃしん" style={{ width: '100%', maxHeight: isMobile ? '200px' : '150px', objectFit: 'cover', marginTop: '0.5rem', borderRadius: '8px' }} />
                   )}
 
+                  {/* AI Safety Advice in List */}
+                  {h.aiAdvice && (
+                    <div style={{ marginTop: '0.8rem', background: '#F0F7FF', padding: '0.8rem', borderRadius: '8px', border: '1px solid #BAE6FD' }}>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#0369A1', marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                        <span>🤖</span> あんぜん博士のアドバイス
+                      </div>
+                      <div style={{ fontSize: '0.9rem', color: '#0C4A6E', marginBottom: '0.4rem', background: 'white', padding: '0.5rem', borderRadius: '6px', lineHeight: '1.4' }}>
+                        <strong>👶 こども向け:</strong> {h.aiAdvice.forKids}
+                      </div>
+                      {h.aiAdvice.forAdults && (
+                        <div style={{ fontSize: '0.8rem', color: '#334155', background: '#F8FAFC', padding: '0.4rem 0.5rem', borderRadius: '6px', lineHeight: '1.3' }}>
+                          <strong>👥 おとな向け:</strong> {h.aiAdvice.forAdults}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Comment Section in List */}
                   <div style={{ marginTop: '0.8rem', borderTop: '1px dashed #DDD', paddingTop: '0.8rem' }}>
                     <p style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#7F8C8D', marginBottom: '0.5rem' }}>コメント ({h.comments?.length || 0})</p>
@@ -1232,6 +1406,240 @@ function App() {
           </section>
         </aside>
       </div>
+
+      {/* Area Summary Modal */}
+      {isSummaryModalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          zIndex: 3000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '1rem'
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '16px',
+            maxWidth: '500px',
+            width: '100%',
+            padding: '1.5rem',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
+            maxHeight: '85vh',
+            overflowY: 'auto'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ margin: 0, color: '#2C3E50', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.2rem' }}>
+                <span>✨</span> 地域のあんぜんまとめ
+              </h3>
+              <button
+                onClick={() => setIsSummaryModalOpen(false)}
+                style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#95A5A6' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {isLoadingSummary ? (
+              <div style={{ textAlign: 'center', padding: '2rem', color: '#7F8C8D' }}>
+                <span style={{ fontSize: '2rem', display: 'block', marginBottom: '0.5rem' }}>🤖</span>
+                <p>あんぜん博士が まちのようすを まとめています...</p>
+              </div>
+            ) : areaSummary ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ background: '#FFF8E1', padding: '1rem', borderRadius: '10px', border: '1px solid #FFE082' }}>
+                  <h4 style={{ margin: '0 0 0.5rem 0', color: '#D97706', fontSize: '1rem' }}>
+                    {areaSummary.summaryTitle}
+                  </h4>
+                  <p style={{ margin: 0, color: '#92400E', fontSize: '0.95rem', lineHeight: '1.5' }}>
+                    <strong>👶 こどもたちへ:</strong><br />
+                    {areaSummary.forKidsSummary}
+                  </p>
+                </div>
+
+                <div style={{ background: '#F0F9FF', padding: '1rem', borderRadius: '10px', border: '1px solid #BAE6FD' }}>
+                  <p style={{ margin: 0, color: '#0369A1', fontSize: '0.9rem', lineHeight: '1.4' }}>
+                    <strong>👥 保護者・地域の皆様へ:</strong><br />
+                    {areaSummary.forAdultsSummary}
+                  </p>
+                </div>
+
+                <div>
+                  <h5 style={{ margin: '0 0 0.5rem 0', color: '#2C3E50', fontSize: '0.9rem' }}>🎯 ちゅうもくポイント</h5>
+                  <ul style={{ margin: 0, paddingLeft: '1.2rem', color: '#4B5563', fontSize: '0.85rem' }}>
+                    {areaSummary.keyPoints.map((pt, i) => (
+                      <li key={i} style={{ marginBottom: '0.3rem' }}>{pt}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            ) : null}
+
+            <button
+              onClick={() => setIsSummaryModalOpen(false)}
+              style={{
+                marginTop: '1.2rem',
+                width: '100%',
+                padding: '0.8rem',
+                background: '#2C3E50',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '1rem',
+                fontWeight: 'bold',
+                cursor: 'pointer'
+              }}
+            >
+              とじる
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Safety Chat Modal */}
+      {isChatModalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          zIndex: 3000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '1rem'
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '16px',
+            maxWidth: '450px',
+            width: '100%',
+            height: '520px',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
+            overflow: 'hidden'
+          }}>
+            {/* Chat Header */}
+            <div style={{
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              color: 'white',
+              padding: '1rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ fontSize: '1.5rem' }}>🤖</span>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '1rem' }}>あんぜん博士にしつもん</h4>
+                  <p style={{ margin: 0, fontSize: '0.75rem', opacity: 0.8 }}>AI安全相談コーナー</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsChatModalOpen(false)}
+                style={{ background: 'none', border: 'none', fontSize: '1.3rem', color: 'white', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Chat Body */}
+            <div style={{
+              flex: 1,
+              padding: '1rem',
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.8rem',
+              backgroundColor: '#F8FAFC'
+            }}>
+              {chatMessages.map((msg, i) => (
+                <div
+                  key={i}
+                  style={{
+                    alignSelf: msg.sender === 'user' ? 'flex-end' : 'flex-start',
+                    maxWidth: '85%'
+                  }}
+                >
+                  <div style={{
+                    padding: '0.7rem 1rem',
+                    borderRadius: '14px',
+                    background: msg.sender === 'user' ? '#3B82F6' : 'white',
+                    color: msg.sender === 'user' ? 'white' : '#1E293B',
+                    boxShadow: '0 2px 5px rgba(0,0,0,0.05)',
+                    fontSize: '0.9rem',
+                    lineHeight: '1.4',
+                    borderBottomRightRadius: msg.sender === 'user' ? '2px' : '14px',
+                    borderBottomLeftRadius: msg.sender === 'bot' ? '2px' : '14px',
+                  }}>
+                    {msg.text}
+                  </div>
+                  {msg.adultText && (
+                    <div style={{
+                      marginTop: '0.3rem',
+                      padding: '0.4rem 0.6rem',
+                      background: '#F1F5F9',
+                      borderRadius: '8px',
+                      fontSize: '0.75rem',
+                      color: '#64748B',
+                      lineHeight: '1.3'
+                    }}>
+                      👥 <strong>おとな向け:</strong> {msg.adultText}
+                    </div>
+                  )}
+                </div>
+              ))}
+              {isChatSending && (
+                <div style={{ alignSelf: 'flex-start', color: '#94A3B8', fontSize: '0.85rem' }}>
+                  あんぜん博士が 考え中... 🤔
+                </div>
+              )}
+            </div>
+
+            {/* Chat Input */}
+            <form onSubmit={handleSendChatMessage} style={{
+              padding: '0.8rem',
+              display: 'flex',
+              gap: '0.5rem',
+              background: 'white',
+              borderTop: '1px solid #E2E8F0'
+            }}>
+              <input
+                type="text"
+                value={chatInput}
+                onChange={e => setChatInput(e.target.value)}
+                placeholder="例: 暗い道を通るときはどうする？"
+                style={{
+                  flex: 1,
+                  padding: '0.6rem 0.8rem',
+                  borderRadius: '20px',
+                  border: '1px solid #CBD5E1',
+                  fontSize: '0.9rem',
+                  outline: 'none'
+                }}
+              />
+              <button
+                type="submit"
+                disabled={!chatInput.trim() || isChatSending}
+                style={{
+                  background: '#3B82F6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '20px',
+                  padding: '0.6rem 1rem',
+                  fontWeight: 'bold',
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  opacity: chatInput.trim() && !isChatSending ? 1 : 0.5
+                }}
+              >
+                そうしん
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Mobile Bottom Navigation */}
       {isMobile && (

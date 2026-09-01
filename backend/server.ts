@@ -6,6 +6,12 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
 
+import dotenv from 'dotenv';
+import { generateSafetyAdvice } from './services/geminiService.js';
+import aiRoutes from './routes/aiRoutes.js';
+
+dotenv.config();
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -28,7 +34,8 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Get all hazards
+// Gemini AI モジュールルーターのマウント
+app.use('/api/ai', aiRoutes);
 app.get('/api/hazards', (req, res) => {
   fs.readFile(DATA_FILE, 'utf8', (err, data) => {
     if (err) {
@@ -70,7 +77,10 @@ app.post('/api/hazards', upload.single('image'), (req, res) => {
       if (err) return res.status(500).send('Error saving data');
       res.status(201).json(newHazard);
     });
-  });
+  } catch (error) {
+    console.error('Error adding hazard:', error);
+    res.status(500).send('Error processing hazard registration');
+  }
 });
 
 // Post a comment to a hazard
@@ -107,6 +117,7 @@ app.post('/api/hazards/:id/comments', (req, res) => {
 });
 
 // Delete a hazard (Resolve)
+
 app.delete('/api/hazards/:id', (req, res) => {
   const id = parseInt(req.params.id as string);
   fs.readFile(DATA_FILE, 'utf8', (err, data) => {
@@ -119,6 +130,8 @@ app.delete('/api/hazards/:id', (req, res) => {
     });
   });
 });
+
+
 
 // Update a hazard
 app.put('/api/hazards/:id', upload.single('image'), (req, res) => {

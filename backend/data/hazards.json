@@ -3,25 +3,41 @@
     "id": 1,
     "lat": 35.6895,
     "lng": 139.6917,
-    "type": "Traffic",
+   　"type": "Traffic",
+    
     "level": 5,
-    "description": "みちが せまくて くるまが おおいよ 🚗"
-  },
+    "description": "Narrow road with heavy traffic. 交通量が非常に多い細い道です。",
+    "aiAdvice": {
+     "forKids": "くるまが たくさん とおるよ！ とびださないで、みぎひだりを よくみて わたろうね！",
+     "forAdults": "歩道が狭く見通しが悪いため、お子様の手を繋いで通行してください。
+    }
+    },
   {
     "id": 2,
     "lat": 35.6905,
     "lng": 139.6927,
     "type": "Lighting",
-    "level": 2,
-    "description": "よるに なると すごく くらいよ 🌙"
+　　"level": 2,
+    "description": "Very dark at night, no street lights. 夜間は街灯がなくとても暗いです。",
+    "aiAdvice": {
+      "forKids": "よるは とても くらいよ！ はやおえりするか、はかるい ライトを もってね！",
+      "forAdults": "街灯が少ないため、夜間の単独通行は避け、防犯ブザー等を携行してください。"
+    }
+
   },
   {
     "id": 3,
     "lat": 38.3228112833216,
     "lng": 140.3592109797584,
     "type": "Lighting",
-    "level": 3,
-    "description": "よるに なると くらいみち 🌙"
+    
+    "level": 3
+    "description": "暗い",
+    "aiAdvice": {
+      "forKids": "みちが くらいから、はんしゃ材をつけるか、あかるい みちを とおろうね！",
+      "forAdults": "周囲の見通しが利かない時間帯は防犯に配慮し、明るい迂回路をご検討ください。"
+    }
+  
   },
   {
     "id": 4,
@@ -30,6 +46,7 @@
     "type": "Traffic",
     "level": 4,
     "description": "スピードを だす くるまが おおい 🚗"
+  
   },
   {
     "id": 5,
