@@ -18,6 +18,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+
+const PORT = 3001;
+const DATA_FILE = path.join(__dirname, 'data', 'hazards.json');
+const FEEDBACK_FILE = path.join(__dirname, 'data', 'feedback.json');
+
 const PORT = process.env.PORT || 3001;
 const DATA_FILE = process.env.HAZARDS_DATA_FILE || path.join(__dirname, 'data', 'hazards.json');
 
@@ -25,6 +30,7 @@ const DATA_FILE = process.env.HAZARDS_DATA_FILE || path.join(__dirname, 'data', 
 if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }
+
 
 // Multer setup with strict file type and size validation
 const storage = multer.diskStorage({
@@ -190,7 +196,11 @@ app.post('/api/hazards', upload.single('image'), (req, res) => {
 
 // Post a comment to a hazard
 app.post('/api/hazards/:id/comments', (req, res) => {
+
+  const id = parseInt(req.params.id as string, 10);
+
   const id = parseInt(req.params.id as string);
+
   const { text } = req.body;
 
   if (!text) return res.status(400).send('Comment text is required');
@@ -235,7 +245,11 @@ app.post('/api/hazards/:id/comments', (req, res) => {
 // Delete a hazard (Resolve)
 
 app.delete('/api/hazards/:id', (req, res) => {
+
+  const id = parseInt(req.params.id as string, 10);
+
   const id = parseInt(req.params.id as string);
+
   fs.readFile(DATA_FILE, 'utf8', (err, data) => {
     if (err) return res.status(500).send('Error reading data file');
     const hazards = JSON.parse(data);
@@ -246,6 +260,13 @@ app.delete('/api/hazards/:id', (req, res) => {
     res.status(500).send('Error deleting hazard data');
   }
 });
+
+
+// Update a hazard
+app.put('/api/hazards/:id', upload.single('image'), (req, res) => {
+  const id = parseInt(req.params.id as string, 10);
+  const { type, description } = req.body;
+  const imageUrl = req.file ? `http://localhost:3001/uploads/${req.file.filename}` : req.body.imageUrl;
 
 
 
@@ -305,9 +326,52 @@ app.put('/api/hazards/:id', upload.single('image'), (req, res) => {
   }
 });
 
+// Get all feedbacks
+app.get('/api/feedback', (req, res) => {
+  if (!fs.existsSync(FEEDBACK_FILE)) {
+    return res.json([]);
+  }
+  fs.readFile(FEEDBACK_FILE, 'utf8', (err, data) => {
+    if (err) return res.status(500).send('Error reading feedback file');
+    try {
+      res.json(JSON.parse(data || '[]'));
+    } catch {
+      res.json([]);
+    }
+  });
+});
+
+// Post a feedback
+app.post('/api/feedback', (req, res) => {
+  const feedbackData = req.body;
+  const newFeedback = {
+    id: Date.now(),
+    createdAt: new Date().toISOString(),
+    ...feedbackData
+  };
+
+  fs.readFile(FEEDBACK_FILE, 'utf8', (err, data) => {
+    let feedbacks = [];
+    if (!err && data) {
+      try {
+        feedbacks = JSON.parse(data);
+      } catch {
+        feedbacks = [];
+      }
+    }
+    feedbacks.push(newFeedback);
+    fs.writeFile(FEEDBACK_FILE, JSON.stringify(feedbacks, null, 2), (writeErr) => {
+      if (writeErr) return res.status(500).send('Error saving feedback');
+      res.status(201).json(newFeedback);
+    });
+  });
+});
+
+app.listen(PORT, () => {
 
 // Start Server & Check DB Connection
 app.listen(PORT, async () => {
+
   console.log(`Server is running on http://localhost:${PORT}`);
   await checkDbConnection();
 });

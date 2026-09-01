@@ -1,3 +1,30 @@
+
+# みんなの安全マップ (Hazard Map)
+
+子供（小学生・未就学児）から保護者・地域の方まで、だれでも直感的に通学路や地域の危険情報を共有・確認できるWebアプリケーションです。
+
+---
+
+## 📚 主なドキュメント
+
+- [デザインガイドライン (DESIGN_GUIDELINE.md)](file:///C:/Users/denshi36/Desktop/maho/DESIGN_GUIDELINE.md)
+  - ルビ（ふりがな）ルール、カテゴリカラー、危険度アニメーション仕様
+- [ユーザーテスト実施キット (USER_TEST_KIT.md)](file:///C:/Users/denshi36/Desktop/maho/USER_TEST_KIT.md)
+  - 子供・保護者向けテスト計画、ミッションカード、観察記録シート、アンケート質問票
+
+---
+
+## 🚀 開発・起動方法
+
+### バックエンド (Express)
+```bash
+cd backend
+npm install
+npm run dev
+```
+
+### フロントエンド (Vite + React)
+
 # みんなの安全マップ (Hazard Map) 🔰
 
 子どもから大人まで誰でも直感的に分かりやすく、地域の危険箇所（交通、防犯、災害、街灯、その他）を可視化・共有できる親しみやすいマップアプリケーションです。
@@ -55,10 +82,12 @@ npx tsx server.ts
 バックエンドAPIサーバーが `http://localhost:3001` で起動します。
 
 ### 2. フロントエンドの起動
+
 ```bash
 cd frontend
 npm install
 npm run dev
+
 ```
 ブラウザで [http://localhost:5173](http://localhost:5173) にアクセスしてください。
 
@@ -82,4 +111,5 @@ npm run dev
 ├── tasks_and_roles.md       # タスク管理＆役割分担表
 ├── role_allocation.md       # チーム役割定義書
 └── README.md                # 運用・仕様説明書
+
 ```
