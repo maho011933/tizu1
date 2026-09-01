@@ -8,13 +8,18 @@ import multer from 'multer';
 import { pool, query } from './db/index.js';
 import { uploadImage } from './services/storageService.js';
 
+import dotenv from 'dotenv';
+import { generateSafetyAdvice } from './services/geminiService.js';
+import aiRoutes from './routes/aiRoutes.js';
+
+dotenv.config();
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const DATA_FILE = path.join(__dirname, 'data', 'hazards.json');
-const UPLOADS_DIR = path.join(__dirname, 'uploads');
+const DATA_FILE = process.env.HAZARDS_DATA_FILE || path.join(__dirname, 'data', 'hazards.json');
 
 // Ensure uploads directory exists
 if (!fs.existsSync(UPLOADS_DIR)) {
@@ -114,46 +119,12 @@ app.get('/api/hazards', async (req, res) => {
   }
 });
 
-// PostGIS 空間検索: 半径Xm以内の危険箇所取得API
-app.get('/api/hazards/nearby', async (req, res) => {
-  const { lat, lng, radius } = req.query;
-
-  if (!lat || !lng) {
-    return res.status(400).json({ error: 'Latitude (lat) and Longitude (lng) are required.' });
-  }
-
-  const latitude = parseFloat(lat as string);
-  const longitude = parseFloat(lng as string);
-  const searchRadius = radius ? parseFloat(radius as string) : 500; // デフォルト500メートル
-
-  if (isDbConnected) {
-    try {
-      const sql = `
-        SELECT 
-          h.id, 
-          h.lat, 
-          h.lng, 
-          h.type, 
-          h.description, 
-          h.image_url AS "imageUrl", 
-          h.danger_level AS "dangerLevel",
-          ROUND(ST_DistanceSphere(h.location, ST_SetSRID(ST_MakePoint($2, $1), 4326))::numeric, 1) AS "distanceMeters",
-          COALESCE(
-            JSON_AGG(
-              JSON_BUILD_OBJECT('id', c.id, 'text', c.text, 'createdAt', c.created_at)
-            ) FILTER (WHERE c.id IS NOT NULL), '[]'
-          ) AS comments
-        FROM hazards h
-        LEFT JOIN comments c ON h.id = c.hazard_id
-        WHERE ST_DWithin(h.location::geography, ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography, $3)
-        GROUP BY h.id
-        ORDER BY "distanceMeters" ASC;
-      `;
-      const result = await query(sql, [latitude, longitude, searchRadius]);
-      return res.json(result.rows);
-    } catch (err) {
-      console.error('Error executing spatial query:', err);
-      return res.status(500).json({ error: 'Database spatial query failed.' });
+// Gemini AI モジュールルーターのマウント
+app.use('/api/ai', aiRoutes);
+app.get('/api/hazards', (req, res) => {
+  fs.readFile(DATA_FILE, 'utf8', (err, data) => {
+    if (err) {
+      return res.status(500).send('Error reading data file');
     }
   }
 
@@ -179,60 +150,47 @@ app.get('/api/hazards/nearby', async (req, res) => {
   }
 });
 
+const getImageUrl = (req: express.Request, filename: string) => {
+  const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+  return `${baseUrl}/uploads/${filename}`;
+};
+
 // Post a new hazard with image
-app.post('/api/hazards', upload.single('image'), async (req, res) => {
-  const { lat, lng, type, description, dangerLevel } = req.body;
-  
-  let imageUrl: string | null = null;
-  if (req.file) {
-    const uploadResult = await uploadImage(req.file, PORT);
-    imageUrl = uploadResult.url;
-  }
+app.post('/api/hazards', upload.single('image'), (req, res) => {
+  const { lat, lng, type, description, level, timeOfDay } = req.body;
+  const imageUrl = req.file ？ getImageUrl(req, req.file.filename) :null;
 
-  const latitude = parseFloat(lat);
-  const longitude = parseFloat(lng);
-  const danger = dangerLevel ? parseInt(dangerLevel) : 3;
-
-  if (isDbConnected) {
-    try {
-      const sql = `
-        INSERT INTO hazards (lat, lng, location, type, description, image_url, danger_level)
-        VALUES ($1, $2, ST_SetSRID(ST_MakePoint($2, $1), 4326), $3, $4, $5, $6)
-        RETURNING id, lat, lng, type, description, image_url AS "imageUrl", danger_level AS "dangerLevel", created_at AS "createdAt";
-      `;
-      const result = await query(sql, [latitude, longitude, type, description, imageUrl, danger]);
-      const newHazard = { ...result.rows[0], comments: [] };
-      return res.status(201).json(newHazard);
-    } catch (err) {
-      console.error('Error inserting hazard into DB:', err);
-    }
-  }
-
-  // Fallback to hazards.json
-  try {
-    const hazards = readJsonData();
-    const newId = hazards.length > 0 ? hazards[hazards.length - 1].id + 1 : 1;
+  fs.readFile(DATA_FILE, 'utf8', (err, data) => {
+    if (err) return res.status(500).send('Error reading data file');
+    const hazards = JSON.parse(data);
+    const newId = hazards.length > 0 ? Math.max(...hazards.map((h: any) => h.id || 0)) + 1 : 1;
+    
     const newHazard = {
       id: newId,
       lat: latitude,
       lng: longitude,
       type,
       description,
+      level: level ? parseInt(level) : 3,
+      timeOfDay: timeOfDay || 'all',
       imageUrl,
       dangerLevel: danger,
       comments: []
     };
     hazards.push(newHazard);
-    writeJsonData(hazards);
-    res.status(201).json(newHazard);
-  } catch (err) {
-    res.status(500).send('Error saving hazard data');
+    fs.writeFile(DATA_FILE, JSON.stringify(hazards, null, 2), (err) => {
+      if (err) return res.status(500).send('Error saving data');
+      res.status(201).json(newHazard);
+    });
+  } catch (error) {
+    console.error('Error adding hazard:', error);
+    res.status(500).send('Error processing hazard registration');
   }
 });
 
 // Post a comment to a hazard
-app.post('/api/hazards/:id/comments', async (req, res) => {
-  const id = parseInt(req.params.id);
+app.post('/api/hazards/:id/comments', (req, res) => {
+  const id = parseInt(req.params.id as string);
   const { text } = req.body;
 
   if (!text) return res.status(400).send('Comment text is required');
@@ -275,21 +233,12 @@ app.post('/api/hazards/:id/comments', async (req, res) => {
 });
 
 // Delete a hazard (Resolve)
-app.delete('/api/hazards/:id', async (req, res) => {
-  const id = parseInt(req.params.id);
 
-  if (isDbConnected) {
-    try {
-      await query('DELETE FROM hazards WHERE id = $1', [id]);
-      return res.status(200).send('Hazard resolved');
-    } catch (err) {
-      console.error('Error deleting hazard from DB:', err);
-    }
-  }
-
-  // Fallback to hazards.json
-  try {
-    const hazards = readJsonData();
+app.delete('/api/hazards/:id', (req, res) => {
+  const id = parseInt(req.params.id as string);
+  fs.readFile(DATA_FILE, 'utf8', (err, data) => {
+    if (err) return res.status(500).send('Error reading data file');
+    const hazards = JSON.parse(data);
     const filteredHazards = hazards.filter((h: any) => h.id !== id);
     writeJsonData(filteredHazards);
     res.status(200).send('Hazard resolved');
@@ -298,7 +247,10 @@ app.delete('/api/hazards/:id', async (req, res) => {
   }
 });
 
-// Update a hazard
+
+
+// Update
+
 app.put('/api/hazards/:id', upload.single('image'), async (req, res) => {
   const id = parseInt(req.params.id);
   const { type, description, dangerLevel } = req.body;
@@ -308,6 +260,12 @@ app.put('/api/hazards/:id', upload.single('image'), async (req, res) => {
     const uploadResult = await uploadImage(req.file, PORT);
     imageUrl = uploadResult.url;
   }
+
+app.put('/api/hazards/:id', upload.single('image'), (req, res) => {
+  const id = parseInt(req.params.id as string);
+  const { type, description, level, timeOfDay } =req.body;
+  const imageUrl =req.file ? getImageUrl(req, req.file.filename) : req.body.imageUrl;
+
 
   if (isDbConnected) {
     try {
@@ -335,6 +293,8 @@ app.put('/api/hazards/:id', upload.single('image'), async (req, res) => {
       ...hazards[index],
       type,
       description,
+      level: level ? parseInt(level) : (hazards[index].level || 3),
+      timeOfDay: timeOfDay || hazards[index].timeOfDay || 'all',
       imageUrl: imageUrl === 'null' ? null : imageUrl
     };
 
@@ -345,9 +305,20 @@ app.put('/api/hazards/:id', upload.single('image'), async (req, res) => {
   }
 });
 
+
 // Start Server & Check DB Connection
 app.listen(PORT, async () => {
   console.log(`Server is running on http://localhost:${PORT}`);
   await checkDbConnection();
 });
+
+
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
+  });
+}
+
+export { app, getImageUrl };
+export default app;
 
