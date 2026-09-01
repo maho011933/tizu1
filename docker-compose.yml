@@ -1,4 +1,23 @@
 
+services:
+  postgres:
+    image: postgis/postgis:15-3.3
+    container_name: safetymap-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_DB: safetymap
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+volumes:
+  pgdata:
+
+
 version: '3.8'
 
 services:
@@ -82,4 +101,5 @@ services:
 
 volumes:
   postgres_data:
+
 

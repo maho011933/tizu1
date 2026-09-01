@@ -1,4 +1,7 @@
 
+# Dependencies
+
+
 # Logs
 logs
 *.log
@@ -18,12 +21,30 @@ pids
 *.pid.lock
 
 # Dependency directories
+
 node_modules/
 backend/node_modules/
 frontend/node_modules/
 
 # Environment variables
 .env
+
+backend/.env
+frontend/.env
+*.env.local
+
+# Build output
+dist/
+build/
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS and IDE
+
 .env.local
 .env.*.local
 backend/.env
@@ -71,6 +92,7 @@ pnpm-debug.log*
 lerna-debug.log*
 
 # Editor & OS metadata
+
 .DS_Store
 Thumbs.db
 .vscode/
