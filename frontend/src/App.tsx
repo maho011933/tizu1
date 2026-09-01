@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import './App.css';
@@ -109,6 +109,20 @@ function App() {
   });
   const [commentTexts, setCommentTexts] = useState<Record<number, string>>({});
   const [selectedHazardId, setSelectedHazardId] = useState<number | null>(null);
+
+  // Feedback states
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const [feedbackRole, setFeedbackRole] = useState<'child' | 'parent'>('child');
+  const [childEase, setChildEase] = useState<'easy' | 'normal' | 'hard' | ''>('');
+  const [childReadability, setChildReadability] = useState<'readable' | 'some_hard' | 'unreadable' | ''>('');
+  const [childLiked, setChildLiked] = useState('');
+  const [childNeedsFix, setChildNeedsFix] = useState('');
+  const [parentRating, setParentRating] = useState<number>(5);
+  const [parentChildAge, setParentChildAge] = useState('');
+  const [parentUsability, setParentUsability] = useState('とても使いやすい');
+  const [parentComment, setParentComment] = useState('');
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
 
   useEffect(() => {
     if (selectedHazardId && (!isMobile || activeTab === 'list')) {
@@ -288,7 +302,51 @@ function App() {
       });
   };
 
-  const typeLabels: Record<string, JSX.Element> = {
+  const handleSendFeedback = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmittingFeedback(true);
+
+    const feedbackPayload = feedbackRole === 'child' ? {
+      role: 'child',
+      ease: childEase,
+      readability: childReadability,
+      liked: childLiked,
+      needsFix: childNeedsFix
+    } : {
+      role: 'parent',
+      rating: parentRating,
+      childAge: parentChildAge,
+      usability: parentUsability,
+      comment: parentComment
+    };
+
+    try {
+      await fetch('http://localhost:3001/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(feedbackPayload)
+      });
+      setFeedbackSubmitted(true);
+      setTimeout(() => {
+        setFeedbackSubmitted(false);
+        setIsFeedbackOpen(false);
+        // Reset form
+        setChildEase('');
+        setChildReadability('');
+        setChildLiked('');
+        setChildNeedsFix('');
+        setParentRating(5);
+        setParentComment('');
+      }, 1500);
+    } catch (err) {
+      console.error('Error submitting feedback:', err);
+      alert('ごめんね、おくれませんでした。もういちど ためしてね。');
+    } finally {
+      setIsSubmittingFeedback(false);
+    }
+  };
+
+  const typeLabels: Record<string, React.ReactNode> = {
     Traffic: <><ruby>車<rt>くるま</rt></ruby>・<ruby>交通<rt>こうつう</rt></ruby> 🚗</>,
     Crime: <><ruby>不審者<rt>ふしんしゃ</rt></ruby>・<ruby>防犯<rt>ぼうはん</rt></ruby> 👮</>,
     Disaster: <><ruby>地震<rt>じしん</rt></ruby>・<ruby>火災<rt>かさい</rt></ruby> 🌊</>,
@@ -340,28 +398,49 @@ function App() {
             {!isMobile && <p style={{ margin: 0, fontSize: '0.8rem', opacity: 0.8 }}><ruby>街<rt>まち</rt></ruby>の <ruby>安全<rt>あんぜん</rt></ruby>を みんなで <ruby>守<rt>まも</rt></ruby>ろう！</p>}
           </div>
         </div>
-        <button 
-          onClick={() => {
-            if (window.confirm('いつもの ばしょを かえる？🏠')) {
-              setIsSettingHome(true);
-              if (isMobile) setActiveTab('map');
-            }
-          }}
-          style={{
-            background: '#34495E',
-            color: 'white',
-            border: 'none',
-            borderRadius: '20px',
-            padding: isMobile ? '0.4rem 0.8rem' : '0.5rem 1rem',
-            cursor: 'pointer',
-            fontSize: isMobile ? '0.7rem' : '0.9rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.3rem'
-          }}
-        >
-          🏠 <span><ruby>場所<rt>ばしょ</rt></ruby>を かえる</span>
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0.4rem' : '0.8rem' }}>
+          <button 
+            onClick={() => setIsFeedbackOpen(true)}
+            style={{
+              background: '#E67E22',
+              color: 'white',
+              border: 'none',
+              borderRadius: '20px',
+              padding: isMobile ? '0.4rem 0.7rem' : '0.5rem 1rem',
+              cursor: 'pointer',
+              fontSize: isMobile ? '0.75rem' : '0.9rem',
+              fontWeight: 'bold',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.3rem',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+            }}
+          >
+            💌 <span><ruby>感想<rt>かんそう</rt></ruby></span>
+          </button>
+          <button 
+            onClick={() => {
+              if (window.confirm('いつもの ばしょを かえる？🏠')) {
+                setIsSettingHome(true);
+                if (isMobile) setActiveTab('map');
+              }
+            }}
+            style={{
+              background: '#34495E',
+              color: 'white',
+              border: 'none',
+              borderRadius: '20px',
+              padding: isMobile ? '0.4rem 0.7rem' : '0.5rem 1rem',
+              cursor: 'pointer',
+              fontSize: isMobile ? '0.75rem' : '0.9rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.3rem'
+            }}
+          >
+            🏠 <span><ruby>場所<rt>ばしょ</rt></ruby>を かえる</span>
+          </button>
+        </div>
       </header>
       
       {/* Home Selection Overlay (Welcome) */}
@@ -875,6 +954,408 @@ function App() {
             <span style={{ fontSize: '0.7rem', fontWeight: 'bold' }}><ruby>報告<rt>ほうこく</rt></ruby></span>
           </button>
         </nav>
+      )}
+      {/* Floating Feedback Button */}
+      <button
+        onClick={() => setIsFeedbackOpen(true)}
+        style={{
+          position: 'fixed',
+          bottom: isMobile ? '80px' : '25px',
+          right: isMobile ? '15px' : '25px',
+          zIndex: 1500,
+          background: 'linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%)',
+          color: 'white',
+          border: '3px solid white',
+          borderRadius: '50px',
+          padding: isMobile ? '0.6rem 1rem' : '0.8rem 1.4rem',
+          fontSize: isMobile ? '0.85rem' : '1rem',
+          fontWeight: 'bold',
+          cursor: 'pointer',
+          boxShadow: '0 4px 15px rgba(255, 107, 107, 0.4)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.4rem',
+          transition: 'transform 0.2s ease',
+        }}
+        onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'}
+        onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+      >
+        <span style={{ fontSize: isMobile ? '1.1rem' : '1.3rem' }}>💌</span>
+        <span><ruby>感想<rt>かんそう</rt></ruby>・ご<ruby>意見<rt>いけん</rt></ruby></span>
+      </button>
+
+      {/* Feedback Modal */}
+      {isFeedbackOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.6)',
+          zIndex: 2500,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '1rem',
+          backdropFilter: 'blur(3px)'
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '24px',
+            width: '100%',
+            maxWidth: '520px',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+            padding: isMobile ? '1.2rem' : '1.8rem',
+            position: 'relative'
+          }}>
+            {/* Close button */}
+            <button
+              onClick={() => setIsFeedbackOpen(false)}
+              style={{
+                position: 'absolute',
+                top: '15px',
+                right: '15px',
+                background: '#F1F2F6',
+                border: 'none',
+                borderRadius: '50%',
+                width: '36px',
+                height: '36px',
+                fontSize: '1.2rem',
+                cursor: 'pointer',
+                color: '#7F8C8D',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              ✕
+            </button>
+
+            {feedbackSubmitted ? (
+              <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
+                <span style={{ fontSize: '4rem', display: 'block', marginBottom: '1rem' }}>🎉</span>
+                <h3 style={{ color: '#27AE60', fontSize: '1.5rem', marginBottom: '0.5rem' }}>
+                  おくりましタ！
+                </h3>
+                <p style={{ color: '#2C3E50', fontSize: '1.1rem', fontWeight: 'bold' }}>
+                  <ruby>感想<rt>かんそう</rt></ruby>を おしえてくれて ありがとう！💖
+                </p>
+              </div>
+            ) : (
+              <form onSubmit={handleSendFeedback}>
+                <div style={{ textAlign: 'center', marginBottom: '1.2rem' }}>
+                  <span style={{ fontSize: '2.2rem' }}>💌</span>
+                  <h2 style={{ margin: '0.3rem 0', color: '#2C3E50', fontSize: isMobile ? '1.2rem' : '1.4rem' }}>
+                    みんなの <ruby>声<rt>こえ</rt></ruby>を きかせてね！
+                  </h2>
+                  <p style={{ margin: 0, fontSize: '0.85rem', color: '#7F8C8D' }}>
+                    アプリをもっと よくするための ヒントを おしえてね
+                  </p>
+                </div>
+
+                {/* Role Switcher Tab */}
+                <div style={{
+                  display: 'flex',
+                  background: '#F0F4F8',
+                  borderRadius: '12px',
+                  padding: '4px',
+                  marginBottom: '1.2rem'
+                }}>
+                  <button
+                    type="button"
+                    onClick={() => setFeedbackRole('child')}
+                    style={{
+                      flex: 1,
+                      padding: '0.6rem',
+                      borderRadius: '10px',
+                      border: 'none',
+                      background: feedbackRole === 'child' ? '#FF6B6B' : 'transparent',
+                      color: feedbackRole === 'child' ? 'white' : '#7F8C8D',
+                      fontWeight: 'bold',
+                      fontSize: '0.95rem',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    👦 こどもの かんそう
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFeedbackRole('parent')}
+                    style={{
+                      flex: 1,
+                      padding: '0.6rem',
+                      borderRadius: '10px',
+                      border: 'none',
+                      background: feedbackRole === 'parent' ? '#3498DB' : 'transparent',
+                      color: feedbackRole === 'parent' ? 'white' : '#7F8C8D',
+                      fontWeight: 'bold',
+                      fontSize: '0.95rem',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    👨‍👩‍👧 ほごしゃ の ご意見
+                  </button>
+                </div>
+
+                {feedbackRole === 'child' ? (
+                  /* Child Feedback Form */
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                    {/* Q1: Ease */}
+                    <div>
+                      <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '0.5rem', color: '#2C3E50', fontSize: '0.95rem' }}>
+                        1. つかいやすかった？
+                      </label>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
+                        {[
+                          { key: 'easy', label: '😆 かんたん！', bg: '#2ECC71' },
+                          { key: 'normal', label: '😊 ふつう', bg: '#F1C40F' },
+                          { key: 'hard', label: '😵 むずかしい', bg: '#E74C3C' }
+                        ].map(opt => (
+                          <button
+                            key={opt.key}
+                            type="button"
+                            onClick={() => setChildEase(opt.key as any)}
+                            style={{
+                              padding: '0.6rem 0.3rem',
+                              borderRadius: '12px',
+                              border: childEase === opt.key ? `3px solid ${opt.bg}` : '2px solid #E2E8F0',
+                              background: childEase === opt.key ? `${opt.bg}22` : 'white',
+                              color: '#2C3E50',
+                              fontWeight: childEase === opt.key ? 'bold' : 'normal',
+                              fontSize: '0.85rem',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Q2: Readability */}
+                    <div>
+                      <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '0.5rem', color: '#2C3E50', fontSize: '0.95rem' }}>
+                        2. もじ は よみやすかった？
+                      </label>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
+                        {[
+                          { key: 'readable', label: '📖 ぜんぶ よめた', bg: '#2ECC71' },
+                          { key: 'some_hard', label: '🤔 すこし むずかしい', bg: '#F39C12' },
+                          { key: 'unreadable', label: '❌ よみにくい', bg: '#E74C3C' }
+                        ].map(opt => (
+                          <button
+                            key={opt.key}
+                            type="button"
+                            onClick={() => setChildReadability(opt.key as any)}
+                            style={{
+                              padding: '0.6rem 0.2rem',
+                              borderRadius: '12px',
+                              border: childReadability === opt.key ? `3px solid ${opt.bg}` : '2px solid #E2E8F0',
+                              background: childReadability === opt.key ? `${opt.bg}22` : 'white',
+                              color: '#2C3E50',
+                              fontWeight: childReadability === opt.key ? 'bold' : 'normal',
+                              fontSize: '0.8rem',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Q3: Liked */}
+                    <div>
+                      <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '0.3rem', color: '#2C3E50', fontSize: '0.95rem' }}>
+                        3. すきな マーク や おもしろかった ところ
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="例: くるまのマークが かっこいい！"
+                        value={childLiked}
+                        onChange={e => setChildLiked(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '0.7rem',
+                          borderRadius: '10px',
+                          border: '2px solid #E2E8F0',
+                          fontSize: '0.9rem',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    </div>
+
+                    {/* Q4: Needs fix */}
+                    <div>
+                      <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '0.3rem', color: '#2C3E50', fontSize: '0.95rem' }}>
+                        4. ここを なおしてほしい・むずかしかった ところ
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="例: ボタンの ばしょが よくわからなかった"
+                        value={childNeedsFix}
+                        onChange={e => setChildNeedsFix(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '0.7rem',
+                          borderRadius: '10px',
+                          border: '2px solid #E2E8F0',
+                          fontSize: '0.9rem',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  /* Parent Feedback Form */
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                    {/* Rating */}
+                    <div>
+                      <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '0.4rem', color: '#2C3E50', fontSize: '0.95rem' }}>
+                        総合満足度・おすすめ度
+                      </label>
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        {[1, 2, 3, 4, 5].map(star => (
+                          <button
+                            key={star}
+                            type="button"
+                            onClick={() => setParentRating(star)}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              fontSize: '1.8rem',
+                              cursor: 'pointer',
+                              padding: '2px',
+                              opacity: star <= parentRating ? 1 : 0.3
+                            }}
+                          >
+                            ⭐
+                          </button>
+                        ))}
+                        <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#7F8C8D', marginLeft: '0.5rem' }}>
+                          {parentRating} / 5 点
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Child Age */}
+                    <div>
+                      <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '0.3rem', color: '#2C3E50', fontSize: '0.95rem' }}>
+                        お子様の学年・ご年齢
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="例: 小学2年生、6歳 など"
+                        value={parentChildAge}
+                        onChange={e => setParentChildAge(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '0.7rem',
+                          borderRadius: '10px',
+                          border: '2px solid #E2E8F0',
+                          fontSize: '0.9rem',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    </div>
+
+                    {/* Usability */}
+                    <div>
+                      <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '0.3rem', color: '#2C3E50', fontSize: '0.95rem' }}>
+                        お子様一人での操作のしやすさ
+                      </label>
+                      <select
+                        value={parentUsability}
+                        onChange={e => setParentUsability(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '0.7rem',
+                          borderRadius: '10px',
+                          border: '2px solid #E2E8F0',
+                          fontSize: '0.9rem',
+                          boxSizing: 'border-box',
+                          background: 'white'
+                        }}
+                      >
+                        <option value="とても使いやすい">とても使いやすい（1人で迷わず操作できた）</option>
+                        <option value="使いやすい">使いやすい（少し教えれば使えた）</option>
+                        <option value="普通">普通（大人のサポートが必要）</option>
+                        <option value="改善が必要">改善が必要（操作でつまずく箇所が多かった）</option>
+                      </select>
+                    </div>
+
+                    {/* Comments */}
+                    <div>
+                      <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '0.3rem', color: '#2C3E50', fontSize: '0.95rem' }}>
+                        ご意見・改善要望・気づいた点
+                      </label>
+                      <textarea
+                        rows={3}
+                        placeholder="例: ルビがあって読みやすそうだった / 通学路のルート線が引けるとより嬉しい"
+                        value={parentComment}
+                        onChange={e => setParentComment(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '0.7rem',
+                          borderRadius: '10px',
+                          border: '2px solid #E2E8F0',
+                          fontSize: '0.9rem',
+                          boxSizing: 'border-box',
+                          resize: 'vertical'
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Submit button */}
+                <div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.8rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => setIsFeedbackOpen(false)}
+                    style={{
+                      flex: 1,
+                      padding: '0.8rem',
+                      background: '#ECEFF1',
+                      border: 'none',
+                      borderRadius: '50px',
+                      color: '#546E7A',
+                      fontWeight: 'bold',
+                      fontSize: '0.95rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    やめる
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingFeedback}
+                    style={{
+                      flex: 2,
+                      padding: '0.8rem',
+                      background: feedbackRole === 'child' ? '#FF6B6B' : '#3498DB',
+                      border: 'none',
+                      borderRadius: '50px',
+                      color: 'white',
+                      fontWeight: 'bold',
+                      fontSize: '1rem',
+                      cursor: 'pointer',
+                      boxShadow: feedbackRole === 'child' ? '0 4px 0 #E74C3C' : '0 4px 0 #2980B9',
+                      opacity: isSubmittingFeedback ? 0.7 : 1
+                    }}
+                  >
+                    {isSubmittingFeedback ? '送信中...' : '💌 送信する！✨'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
