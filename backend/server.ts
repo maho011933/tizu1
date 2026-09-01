@@ -45,8 +45,8 @@ const getImageUrl = (req: express.Request, filename: string) => {
 
 // Post a new hazard with image
 app.post('/api/hazards', upload.single('image'), (req, res) => {
-  const { lat, lng, type, description } = req.body;
-  const imageUrl = req.file ? getImageUrl(req, req.file.filename) : null;
+  const { lat, lng, type, description, level, timeOfDay } = req.body;
+  const imageUrl = req.file ？ getImageUrl(req, req.file.filename) :null;
 
   fs.readFile(DATA_FILE, 'utf8', (err, data) => {
     if (err) return res.status(500).send('Error reading data file');
@@ -59,6 +59,8 @@ app.post('/api/hazards', upload.single('image'), (req, res) => {
       lng: parseFloat(lng),
       type,
       description,
+      level: level ? parseInt(level) : 3,
+      timeOfDay: timeOfDay || 'all',
       imageUrl,
       comments: []
     };
@@ -121,8 +123,8 @@ app.delete('/api/hazards/:id', (req, res) => {
 // Update a hazard
 app.put('/api/hazards/:id', upload.single('image'), (req, res) => {
   const id = parseInt(req.params.id as string);
-  const { type, description } = req.body;
-  const imageUrl = req.file ? getImageUrl(req, req.file.filename) : req.body.imageUrl;
+  const { type, description, level, timeOfDay } =req.body;
+  const imageUrl =req.file ? getImageUrl(req, req.file.filename) : req.body.imageUrl;
 
   fs.readFile(DATA_FILE, 'utf8', (err, data) => {
     if (err) return res.status(500).send('Error reading data file');
@@ -135,6 +137,8 @@ app.put('/api/hazards/:id', upload.single('image'), (req, res) => {
       ...hazards[index],
       type,
       description,
+      level: level ? parseInt(level) : (hazards[index].level || 3),
+      timeOfDay: timeOfDay || hazards[index].timeOfDay || 'all',
       imageUrl: imageUrl === 'null' ? null : imageUrl
     };
 
