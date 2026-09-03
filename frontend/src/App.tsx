@@ -56,6 +56,9 @@ function App() {
   const [mapCenter, setMapCenter] = useState<[number, number]>(TENDO_POS);
   const [zoomLevel, setZoomLevel] = useState<number>(15);
 
+  // ヒートマップ表示モード
+  const [showHeatmap, setShowHeatmap] = useState<boolean>(true);
+
   // 自宅位置
   const [homePos, setHomePos] = useState<[number, number] | null>(() => {
     const saved = localStorage.getItem('homePos');
@@ -487,6 +490,32 @@ function App() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+          {/* 🔥 ヒートマップ切り替えボタン */}
+          <button
+            onClick={() => {
+              setShowHeatmap(prev => !prev);
+              showToast(showHeatmap ? 'ヒートマップをOFFにしました' : '🔥 あぶないエリアのヒートマップを表示中！');
+            }}
+            style={{
+              background: showHeatmap ? '#E74C3C' : 'white',
+              color: showHeatmap ? 'white' : '#C0392B',
+              border: showHeatmap ? 'none' : '2px solid #E74C3C',
+              borderRadius: '20px',
+              padding: '0.4rem 0.8rem',
+              fontWeight: 900,
+              fontSize: '0.85rem',
+              cursor: 'pointer',
+              boxShadow: '0 2px 5px rgba(0,0,0,0.15)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.3rem',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <span>🔥</span>
+            <span>{showHeatmap ? 'ヒートマップON' : 'ヒートマップOFF'}</span>
+          </button>
+
           <button
             onClick={() => setIsAvatarModalOpen(true)}
             style={{
@@ -717,6 +746,26 @@ function App() {
                 />
               </div>
 
+              {/* 危険度 Lv (1〜5) */}
+              <div style={{ marginBottom: '0.8rem' }}>
+                <label style={{ display: 'block', fontWeight: 'bold', fontSize: '0.85rem', marginBottom: '0.3rem', color: '#2C3E50' }}>
+                  あぶなさ (危険度): <span style={{ color: formLevel >= 4 ? '#E74C3C' : '#F39C12', fontWeight: 900 }}>Lv.{formLevel}</span>
+                </label>
+                <input
+                  type="range"
+                  min="1"
+                  max="5"
+                  value={formLevel}
+                  onChange={(e) => setFormLevel(parseInt(e.target.value))}
+                  style={{ width: '100%' }}
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#7F8C8D' }}>
+                  <span>Lv.1 (すこし注意)</span>
+                  <span>Lv.3 (ふつう)</span>
+                  <span>Lv.5 (とても危険！)</span>
+                </div>
+              </div>
+
               {/* 写真選択 */}
               <div style={{ marginBottom: '0.8rem' }}>
                 <label style={{ display: 'block', fontWeight: 'bold', fontSize: '0.85rem', marginBottom: '0.3rem', color: '#2C3E50' }}>
@@ -782,6 +831,7 @@ function App() {
               {filteredHazards.map(h => {
                 const isMine = isMyHazard(h.id);
                 const col = typeColors[h.type] || typeColors.Other;
+                const level = h.level || h.dangerLevel || 3;
                 return (
                   <div
                     key={h.id}
@@ -798,11 +848,16 @@ function App() {
                       <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: col.bg }}>
                         {typeLabels[h.type] || h.type}
                       </span>
-                      {isMine && (
-                        <span style={{ background: '#F1C40F', color: '#2C3E50', padding: '1px 5px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 'bold' }}>
-                          じぶん
+                      <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
+                        <span style={{ background: level >= 4 ? '#E74C3C' : '#F39C12', color: 'white', padding: '1px 5px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 'bold' }}>
+                          Lv.{level}
                         </span>
-                      )}
+                        {isMine && (
+                          <span style={{ background: '#F1C40F', color: '#2C3E50', padding: '1px 5px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 'bold' }}>
+                            じぶん
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     <p style={{ margin: '0.3rem 0', fontSize: '0.85rem', color: '#333' }}>
@@ -884,6 +939,35 @@ function App() {
             <MapUpdater center={mapCenter} zoom={zoomLevel} />
             <MapClickHandler onMapClick={handleMapClick} />
 
+            {/* 🔥 ヒートマップレイヤー (グラデーションサーマルサークル) */}
+            {showHeatmap && filteredHazards.map(h => {
+              const level = h.level || h.dangerLevel || 3;
+              if (level >= 5) {
+                return (
+                  <React.Fragment key={`heat-${h.id}`}>
+                    <Circle center={[h.lat, h.lng]} radius={85} pathOptions={{ stroke: false, fillColor: '#FF0000', fillOpacity: 0.15 }} />
+                    <Circle center={[h.lat, h.lng]} radius={48} pathOptions={{ stroke: false, fillColor: '#E74C3C', fillOpacity: 0.35 }} />
+                    <Circle center={[h.lat, h.lng]} radius={22} pathOptions={{ stroke: false, fillColor: '#C0392B', fillOpacity: 0.6 }} />
+                  </React.Fragment>
+                );
+              } else if (level >= 4) {
+                return (
+                  <React.Fragment key={`heat-${h.id}`}>
+                    <Circle center={[h.lat, h.lng]} radius={60} pathOptions={{ stroke: false, fillColor: '#FF5722', fillOpacity: 0.18 }} />
+                    <Circle center={[h.lat, h.lng]} radius={32} pathOptions={{ stroke: false, fillColor: '#E67E22', fillOpacity: 0.4 }} />
+                  </React.Fragment>
+                );
+              } else if (level === 3) {
+                return (
+                  <Circle key={`heat-${h.id}`} center={[h.lat, h.lng]} radius={40} pathOptions={{ stroke: false, fillColor: '#F1C40F', fillOpacity: 0.25 }} />
+                );
+              } else {
+                return (
+                  <Circle key={`heat-${h.id}`} center={[h.lat, h.lng]} radius={25} pathOptions={{ stroke: false, fillColor: '#F39C12', fillOpacity: 0.15 }} />
+                );
+              }
+            })}
+
             {/* クリック選択位置のピン */}
             {selectedPos && (
               <Marker
@@ -943,7 +1027,7 @@ function App() {
               />
             )}
 
-            {/* ハザードマーカー一覧 */}
+            {/* ハザードマーカー一覧（危険度Lvに応じた動的サイズピン） */}
             {filteredHazards.map(h => {
               const isMine = isMyHazard(h.id);
               const level = h.level || h.dangerLevel || 3;
@@ -951,95 +1035,116 @@ function App() {
               const adviceState = aiAdviceMap[h.id];
 
               return (
-                <React.Fragment key={h.id}>
-                  {/* 高危険度の波紋オーラ */}
-                  {level >= 4 && (
-                    <Circle
-                      center={[h.lat, h.lng]}
-                      radius={level === 5 ? 40 : 25}
-                      pathOptions={{
-                        color: '#E74C3C',
-                        fillColor: '#E74C3C',
-                        fillOpacity: 0.18,
-                        weight: 2
-                      }}
-                    />
-                  )}
-
-                  <Marker position={[h.lat, h.lng]} icon={marker}>
-                    <Popup>
-                      <div style={{ minWidth: '220px', maxWidth: '300px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-                          <span style={{
-                            backgroundColor: (typeColors[h.type] || typeColors.Other).bg,
-                            color: (typeColors[h.type] || typeColors.Other).text,
-                            padding: '2px 8px',
-                            borderRadius: '12px',
-                            fontSize: '0.8rem',
-                            fontWeight: 'bold'
-                          }}>
-                            {typeLabels[h.type] || h.type}
-                          </span>
-                          <span style={{
-                            backgroundColor: level >= 4 ? '#E74C3C' : '#F39C12',
-                            color: 'white',
-                            padding: '2px 6px',
-                            borderRadius: '10px',
-                            fontSize: '0.75rem',
-                            fontWeight: 'bold'
-                          }}>
-                            きけん度 Lv.{level}
-                          </span>
-                        </div>
-
-                        <p style={{ margin: '0.4rem 0', fontSize: '0.95rem', color: '#2C3E50', lineHeight: 1.4 }}>
-                          {h.description}
-                        </p>
-
-                        {h.imageUrl && (
-                          <div style={{ margin: '0.4rem 0' }}>
-                            <img
-                              src={h.imageUrl}
-                              alt="危険箇所の写真"
-                              style={{ width: '100%', maxHeight: '140px', objectFit: 'cover', borderRadius: '8px' }}
-                            />
-                          </div>
-                        )}
-
-                        {/* AIあんぜんアドバイス */}
-                        <div style={{ marginTop: '0.6rem', borderTop: '1px dashed #E0E0E0', paddingTop: '0.4rem' }}>
-                          {adviceState?.advice ? (
-                            <div style={{ background: '#E8F8F5', padding: '0.5rem', borderRadius: '8px', fontSize: '0.85rem', color: '#16A085' }}>
-                              <strong>🤖 AIあんぜんアドバイス:</strong>
-                              <p style={{ margin: '0.2rem 0 0 0' }}>{adviceState.advice}</p>
-                            </div>
-                          ) : (
-                            <button
-                              onClick={() => fetchAiAdvice(h)}
-                              disabled={adviceState?.loading}
-                              style={{
-                                width: '100%',
-                                padding: '0.3rem',
-                                background: '#1ABC9C',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '8px',
-                                fontSize: '0.8rem',
-                                fontWeight: 'bold',
-                                cursor: 'pointer'
-                              }}
-                            >
-                              {adviceState?.loading ? '✨ AIがアドバイス考え中...' : '🤖 AIあんぜんアドバイスを聞く'}
-                            </button>
-                          )}
-                        </div>
+                <Marker key={h.id} position={[h.lat, h.lng]} icon={marker}>
+                  <Popup>
+                    <div style={{ minWidth: '220px', maxWidth: '300px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                        <span style={{
+                          backgroundColor: (typeColors[h.type] || typeColors.Other).bg,
+                          color: (typeColors[h.type] || typeColors.Other).text,
+                          padding: '2px 8px',
+                          borderRadius: '12px',
+                          fontSize: '0.8rem',
+                          fontWeight: 'bold'
+                        }}>
+                          {typeLabels[h.type] || h.type}
+                        </span>
+                        <span style={{
+                          backgroundColor: level >= 4 ? '#E74C3C' : '#F39C12',
+                          color: 'white',
+                          padding: '2px 6px',
+                          borderRadius: '10px',
+                          fontSize: '0.75rem',
+                          fontWeight: 'bold'
+                        }}>
+                          きけん度 Lv.{level}
+                        </span>
                       </div>
-                    </Popup>
-                  </Marker>
-                </React.Fragment>
+
+                      <p style={{ margin: '0.4rem 0', fontSize: '0.95rem', color: '#2C3E50', lineHeight: 1.4 }}>
+                        {h.description}
+                      </p>
+
+                      {h.imageUrl && (
+                        <div style={{ margin: '0.4rem 0' }}>
+                          <img
+                            src={h.imageUrl}
+                            alt="危険箇所の写真"
+                            style={{ width: '100%', maxHeight: '140px', objectFit: 'cover', borderRadius: '8px' }}
+                          />
+                        </div>
+                      )}
+
+                      {/* AIあんぜんアドバイス */}
+                      <div style={{ marginTop: '0.6rem', borderTop: '1px dashed #E0E0E0', paddingTop: '0.4rem' }}>
+                        {adviceState?.advice ? (
+                          <div style={{ background: '#E8F8F5', padding: '0.5rem', borderRadius: '8px', fontSize: '0.85rem', color: '#16A085' }}>
+                            <strong>🤖 AIあんぜんアドバイス:</strong>
+                            <p style={{ margin: '0.2rem 0 0 0' }}>{adviceState.advice}</p>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => fetchAiAdvice(h)}
+                            disabled={adviceState?.loading}
+                            style={{
+                              width: '100%',
+                              padding: '0.3rem',
+                              background: '#1ABC9C',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '8px',
+                              fontSize: '0.8rem',
+                              fontWeight: 'bold',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {adviceState?.loading ? '✨ AIがアドバイス考え中...' : '🤖 AIあんぜんアドバイスを聞く'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </Popup>
+                </Marker>
               );
             })}
           </MapContainer>
+
+          {/* 🔥 ヒートマップ凡例 (Legend) */}
+          {showHeatmap && (
+            <div style={{
+              position: 'absolute',
+              bottom: '20px',
+              left: '20px',
+              background: 'rgba(255, 255, 255, 0.92)',
+              backdropFilter: 'blur(4px)',
+              padding: '0.6rem 0.9rem',
+              borderRadius: '12px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              zIndex: 1000,
+              fontSize: '0.8rem',
+              color: '#2C3E50',
+              border: '1px solid #FFE082'
+            }}>
+              <div style={{ fontWeight: 900, marginBottom: '0.3rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                <span>🔥</span>
+                <span>あぶないエリア (ヒートマップ)</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', fontSize: '0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#E74C3C', display: 'inline-block' }}></span>
+                  <span>たいへん危険 (Lv.4〜5)</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#F1C40F', display: 'inline-block' }}></span>
+                  <span>ちゅうい (Lv.3)</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#F39C12', display: 'inline-block', opacity: 0.6 }}></span>
+                  <span>すこし注意 (Lv.1〜2)</span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* クイック操作ボタン */}
           <div style={{ position: 'absolute', bottom: '20px', right: '20px', display: 'flex', flexDirection: 'column', gap: '10px', zIndex: 1000 }}>

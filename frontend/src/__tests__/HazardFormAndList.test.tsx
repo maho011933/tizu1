@@ -19,6 +19,8 @@ vi.mock('react-leaflet', () => ({
     </div>
   ),
   Popup: ({ children }: { children?: React.ReactNode }) => <div data-testid="map-popup">{children}</div>,
+  Circle: () => <div data-testid="map-circle" />,
+  Polyline: () => <div data-testid="map-polyline" />,
   useMap: () => ({
     setView: vi.fn(),
     getZoom: vi.fn().mockReturnValue(15),

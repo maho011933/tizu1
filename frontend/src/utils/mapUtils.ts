@@ -11,20 +11,44 @@ export const getMarkerIcon = (type: string, isMine: boolean = false, level: numb
     ChildSafety: '#1ABC9C', // 青緑
     Other: '#9B59B6'     // 紫
   };
+  const emojis: Record<string, string> = {
+    Traffic: '🚗',
+    Crime: '👮',
+    Disaster: '🌊',
+    Lighting: '🌙',
+    Shelter: '🏫',
+    AED: '💓',
+    ChildSafety: '🏠',
+    Other: '🐾'
+  };
+
   const color = colors[type] || colors.Other;
-  const borderColor = isMine ? '#F1C40F' : 'white'; // 自分の投稿は金色の枠
-  const size = 22 + (level * 2); // 24px ~ 32px
+  const emoji = emojis[type] || emojis.Other;
+  const borderColor = isMine ? '#F1C40F' : 'white';
+
+  // 危険度 Lv.1〜5 に応じたサイズ設定
+  // Lv.1: 24px, Lv.2: 28px, Lv.3: 34px, Lv.4: 42px, Lv.5: 50px
+  const sizes = [24, 28, 34, 42, 50];
+  const fontSizes = [12, 14, 18, 22, 26];
+  const idx = Math.max(0, Math.min(4, (level || 3) - 1));
+  const pinSize = sizes[idx];
+  const fontSize = fontSizes[idx];
+
+  const alertBadge = level >= 4 ? `<div style="position: absolute; top: -14px; right: -8px; background: #E74C3C; color: white; font-size: 10px; font-weight: 900; padding: 1px 4px; border-radius: 8px; border: 1.5px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); z-index: 5;">Lv.${level}</div>` : '';
 
   return L.divIcon({
     className: 'custom-icon',
     html: `
-      <div style="position: relative;">
-        <div style="background-color: ${color}; width: ${size}px; height: ${size}px; border-radius: 50%; border: 4px solid ${borderColor}; box-shadow: 0 3px 8px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-size: 14px;"></div>
-        ${isMine ? '<div style="position: absolute; top: -15px; left: 50%; transform: translateX(-50%); background: #F1C40F; color: #2C3E50; font-size: 10px; font-weight: bold; padding: 1px 4px; border-radius: 4px; white-space: nowrap; border: 1px solid white;">じぶん</div>' : ''}
+      <div style="position: relative; display: flex; align-items: center; justify-content: center;">
+        <div class="${level === 5 ? 'alert-marker' : (level === 4 ? 'pulse-marker' : '')}" style="background-color: ${color}; width: ${pinSize}px; height: ${pinSize}px; border-radius: 50%; border: 4px solid ${borderColor}; box-shadow: 0 3px 8px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-size: ${fontSize}px; transition: all 0.2s ease;">
+          ${emoji}
+        </div>
+        ${alertBadge}
+        ${isMine ? '<div style="position: absolute; top: -15px; left: 50%; transform: translateX(-50%); background: #F1C40F; color: #2C3E50; font-size: 10px; font-weight: bold; padding: 1px 4px; border-radius: 4px; white-space: nowrap; border: 1px solid white; z-index: 4;">じぶん</div>' : ''}
       </div>
     `,
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
+    iconSize: [pinSize, pinSize],
+    iconAnchor: [pinSize / 2, pinSize / 2],
   });
 };
 
