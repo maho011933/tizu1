@@ -606,55 +606,93 @@ function App() {
         </div>
       </header>
 
-      {/* 🏷️ カテゴリ絞り込みフィルターバー */}
+      {/* 🏷️ 危険カテゴリ絞り込みフィルターバー */}
       <div style={{
         background: '#FFF9E6',
-        padding: '0.5rem 1rem',
+        padding: '0.6rem 1rem',
         display: 'flex',
-        gap: '0.5rem',
+        alignItems: 'center',
+        gap: '0.6rem',
         overflowX: 'auto',
         whiteSpace: 'nowrap',
         borderBottom: '2px solid #FFE082',
         zIndex: 900
       }}>
+        <span style={{ fontSize: '0.85rem', fontWeight: 900, color: '#D35400', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+          <span>🔍</span>
+          <span>しぼりこみ:</span>
+        </span>
+
+        {/* ぜんぶボタン */}
         <button
           onClick={() => setSelectedCategory('ALL')}
           style={{
-            padding: '0.35rem 0.8rem',
-            borderRadius: '20px',
-            border: 'none',
-            fontWeight: 'bold',
+            padding: '0.4rem 0.9rem',
+            borderRadius: '25px',
+            border: selectedCategory === 'ALL' ? '2px solid #E74C3C' : '1px solid #DDD',
+            fontWeight: 900,
             fontSize: '0.85rem',
             cursor: 'pointer',
             backgroundColor: selectedCategory === 'ALL' ? '#FF6B6B' : 'white',
             color: selectedCategory === 'ALL' ? 'white' : '#555',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+            boxShadow: selectedCategory === 'ALL' ? '0 3px 8px rgba(255, 107, 107, 0.35)' : '0 2px 4px rgba(0,0,0,0.06)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.3rem',
+            transition: 'all 0.15s ease'
           }}
         >
-          ぜんぶ ({categoryCounts.ALL || 0})
+          {selectedCategory === 'ALL' && <span>✓</span>}
+          <span>ぜんぶ</span>
+          <span style={{
+            background: selectedCategory === 'ALL' ? 'rgba(255,255,255,0.3)' : '#ECEFF1',
+            color: selectedCategory === 'ALL' ? 'white' : '#546E7A',
+            padding: '1px 6px',
+            borderRadius: '10px',
+            fontSize: '0.75rem',
+            fontWeight: 'bold'
+          }}>
+            {categoryCounts.ALL || 0}
+          </span>
         </button>
 
+        {/* 各カテゴリボタン */}
         {Object.entries(typeLabels).map(([typeKey, label]) => {
           const count = categoryCounts[typeKey] || 0;
           const isSelected = selectedCategory === typeKey;
-          const col = typeColors[typeKey] || { bg: '#9B59B6', text: 'white' };
+          const col = typeColors[typeKey] || { bg: '#9B59B6', text: 'white', shadow: '#8E44AD' };
           return (
             <button
               key={typeKey}
               onClick={() => setSelectedCategory(typeKey)}
               style={{
-                padding: '0.35rem 0.8rem',
-                borderRadius: '20px',
-                border: 'none',
-                fontWeight: 'bold',
+                padding: '0.4rem 0.9rem',
+                borderRadius: '25px',
+                border: isSelected ? `2px solid ${col.shadow}` : '1px solid #DDD',
+                fontWeight: 900,
                 fontSize: '0.85rem',
                 cursor: 'pointer',
                 backgroundColor: isSelected ? col.bg : 'white',
                 color: isSelected ? col.text : '#444',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                boxShadow: isSelected ? `0 3px 8px rgba(0,0,0,0.25)` : '0 2px 4px rgba(0,0,0,0.06)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.3rem',
+                transition: 'all 0.15s ease'
               }}
             >
-              {label} ({count})
+              {isSelected && <span>✓</span>}
+              <span>{label}</span>
+              <span style={{
+                background: isSelected ? 'rgba(255,255,255,0.3)' : '#ECEFF1',
+                color: isSelected ? 'white' : '#546E7A',
+                padding: '1px 6px',
+                borderRadius: '10px',
+                fontSize: '0.75rem',
+                fontWeight: 'bold'
+              }}>
+                {count}
+              </span>
             </button>
           );
         })}
@@ -823,11 +861,60 @@ function App() {
 
           {/* 📋 危険箇所一覧リスト */}
           <div>
-            <h3 style={{ margin: '0 0 0.6rem 0', fontSize: '1rem', color: '#2C3E50', fontWeight: 900 }}>
-              危険箇所一覧 ({filteredHazards.length}件)
-            </h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+              <h3 style={{ margin: 0, fontSize: '1rem', color: '#2C3E50', fontWeight: 900 }}>
+                危険箇所一覧 ({filteredHazards.length}件)
+              </h3>
+              {selectedCategory !== 'ALL' && (
+                <button
+                  onClick={() => setSelectedCategory('ALL')}
+                  style={{
+                    background: '#ECEFF1',
+                    border: 'none',
+                    borderRadius: '12px',
+                    padding: '2px 8px',
+                    fontSize: '0.75rem',
+                    color: '#546E7A',
+                    cursor: 'pointer',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  ✕ 全て表示
+                </button>
+              )}
+            </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+            {selectedCategory !== 'ALL' && (
+              <div style={{
+                background: '#FFF3E0',
+                padding: '0.4rem 0.6rem',
+                borderRadius: '8px',
+                fontSize: '0.75rem',
+                color: '#E67E22',
+                fontWeight: 'bold',
+                marginBottom: '0.6rem'
+              }}>
+                🔍 【{typeLabels[selectedCategory] || selectedCategory}】で絞り込み中
+              </div>
+            )}
+
+            {filteredHazards.length === 0 ? (
+              <div style={{
+                backgroundColor: 'white',
+                padding: '1.5rem 1rem',
+                borderRadius: '12px',
+                textAlign: 'center',
+                color: '#7F8C8D',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.05)'
+              }}>
+                <span style={{ fontSize: '2rem', display: 'block', marginBottom: '0.4rem' }}>🎉</span>
+                <strong style={{ fontSize: '0.9rem', color: '#2ECC71' }}>あんしんだね！</strong>
+                <p style={{ margin: '0.3rem 0 0 0', fontSize: '0.8rem' }}>
+                  このカテゴリの危険箇所は<br />まだ報告されていません 😊
+                </p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
               {filteredHazards.map(h => {
                 const isMine = isMyHazard(h.id);
                 const col = typeColors[h.type] || typeColors.Other;
@@ -920,7 +1007,8 @@ function App() {
                   </div>
                 );
               })}
-            </div>
+              </div>
+            )}
           </div>
         </aside>
 
