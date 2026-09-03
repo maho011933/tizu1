@@ -1,9 +1,14 @@
 
+import { useState, useEffect, useMemo } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap, Polyline, Circle } from 'react-leaflet';
+
+
 import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 'react-leaflet';
 
 import { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMapEvents, useMap } from 'react-leaflet';
+
 
 import 'leaflet/dist/leaflet.css';
 import './App.css';
@@ -47,6 +52,8 @@ const getMarkerIcon = (type: string, level: number = 3, isMine: boolean = false)
     Crime: '#3498DB',    // 水色
     Disaster: '#95A5A6', // 灰色
     Lighting: '#F1C40F', // 黄色
+    Shelter: '#2ECC71',  // 緑
+    AED: '#E67E22',      // オレンジ
     Other: '#9B59B6'     // 紫
   };
   const emojis: Record<string, string> = {
@@ -165,6 +172,13 @@ interface LocationPickerProps {
 
 }
 
+interface NearestResult {
+  hazard: Hazard;
+  distanceMeters: number;
+  walkTimeMinutes: number;
+  origin: [number, number];
+  categoryName: string;
+}
 const LocationPicker = ({
   isSettingHome,
   editingHazardId,
@@ -212,6 +226,9 @@ function App() {
   const [timeOfDay, setTimeOfDay] = useState<string>('all');
   const [description, setDescription] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [mapCenter, setMapCenter] = useState<[number, number]>([38.3560, 140.3700]);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [activeTab, setActiveTab] = useState<'map' | 'list' | 'form'>('map');
   const [homePos, setHomePos] = useState<[number, number] | null>(() => {
     const saved = localStorage.getItem('homePos');
     return saved ? JSON.parse(saved) : null;
@@ -226,6 +243,48 @@ function App() {
   });
   const [commentTexts, setCommentTexts] = useState<Record<number, string>>({});
   const [selectedHazardId, setSelectedHazardId] = useState<number | null>(null);
+  const [nearestResult, setNearestResult] = useState<NearestResult | null>(null);
+  const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>('ALL');
+
+  const filteredHazards = useMemo(() => {
+    if (activeCategoryFilter === 'ALL') {
+      return hazards;
+    }
+    return hazards.filter(h => h.type === activeCategoryFilter);
+  }, [hazards, activeCategoryFilter]);
+
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = { ALL: hazards.length };
+    hazards.forEach(h => {
+      counts[h.type] = (counts[h.type] || 0) + 1;
+    });
+    return counts;
+  }, [hazards]);
+
+  const findNearest = async (targetType: 'Shelter' | 'AED') => {
+    const origin = homePos || mapCenter;
+    try {
+      const res = await fetch(`http://localhost:3001/api/hazards/nearby?lat=${origin[0]}&lng=${origin[1]}&type=${targetType}&limit=1`);
+      const data = await res.json();
+      if (data && data.length > 0) {
+        const item = data[0];
+        setNearestResult({
+          hazard: item,
+          distanceMeters: item.distanceMeters,
+          walkTimeMinutes: item.walkTimeMinutes,
+          origin: origin,
+          categoryName: targetType === 'Shelter' ? 'ひなんじょ' : 'AED'
+        });
+        setMapCenter([item.lat, item.lng]);
+        setSelectedHazardId(item.id);
+        if (isMobile) setActiveTab('map');
+      } else {
+        alert(`${targetType === 'Shelter' ? 'ひなんじょ' : 'AED'}が みつかりませんでした`);
+      }
+    } catch (e) {
+      console.error('Error finding nearest spot:', e);
+    }
+  };
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [showHeatmap, setShowHeatmap] = useState<boolean>(true);
   const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' } | null>(null);
@@ -518,6 +577,14 @@ function App() {
       });
   };
 
+  const typeLabels: Record<string, string> = {
+    Traffic: 'くるま・こうつう 🚗',
+    Crime: 'ふしんしゃ・ぼうはん 👮',
+    Disaster: 'じしん・かじ 🌊',
+    Lighting: 'くらみち・でんき 🌙',
+    Shelter: 'ひなんじょ 🏫',
+    AED: 'AED・きゅうきゅう 🫀',
+    Other: 'そのほか 🐾'
 
   const handleSendFeedback = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -584,6 +651,8 @@ function App() {
     Crime: { bg: '#3498DB', text: 'white', shadow: '#2980B9' },       // 水色
     Disaster: { bg: '#95A5A6', text: 'white', shadow: '#7F8C8D' },    // 灰色
     Lighting: { bg: '#F1C40F', text: '#2C3E50', shadow: '#F39C12' },  // 黄色（文字は濃い色）
+    Shelter: { bg: '#2ECC71', text: 'white', shadow: '#27AE60' },     // 緑
+    AED: { bg: '#E67E22', text: 'white', shadow: '#D35400' },         // オレンジ
     Other: { bg: '#9B59B6', text: 'white', shadow: '#8E44AD' }      // 紫（文字は白、影は濃い紫）
   };
 
@@ -652,6 +721,28 @@ function App() {
             {!isMobile && <p style={{ margin: 0, fontSize: '0.8rem', opacity: 0.8 }}>まちの 安全を みんなで まもろう！</p>}
           </div>
         </div>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <button 
+            onClick={() => {
+              setMapCenter([38.3560, 140.3700]);
+              if (isMobile) setActiveTab('map');
+            }}
+            style={{
+              background: '#27AE60',
+              color: 'white',
+              border: 'none',
+              borderRadius: '20px',
+              padding: isMobile ? '0.4rem 0.8rem' : '0.5rem 1rem',
+              cursor: 'pointer',
+              fontSize: isMobile ? '0.7rem' : '0.9rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.3rem',
+              fontWeight: 'bold'
+            }}
+          >
+            🗺️ <span>天童市ピンへ</span>
+          </button>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           {/* Area Summary Button */}
@@ -697,14 +788,84 @@ function App() {
               color: 'white',
               border: 'none',
               borderRadius: '20px',
+
+              padding: isMobile ? '0.4rem 0.8rem' : '0.5rem 1rem',
+              cursor: 'pointer',
+              fontSize: isMobile ? '0.7rem' : '0.9rem',
+
               padding: isMobile ? '0.4rem 0.7rem' : '0.5rem 1rem',
               cursor: 'pointer',
               fontSize: isMobile ? '0.75rem' : '0.9rem',
+
               display: 'flex',
               alignItems: 'center',
               gap: '0.3rem'
             }}
           >
+
+            🏠 <span>ばしょ設定</span>
+          </button>
+        </div>
+      </header>
+      
+      {/* Quick Nearest Safety Navigation Bar */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: isMobile ? 'space-around' : 'center',
+        gap: isMobile ? '0.4rem' : '1rem',
+        padding: isMobile ? '0.5rem 0.8rem' : '0.6rem 1.5rem',
+        background: '#FFFFFF',
+        borderBottom: '2px solid #E2E8F0',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+        zIndex: 900,
+        flexWrap: 'wrap'
+      }}>
+        <span style={{ fontSize: isMobile ? '0.75rem' : '0.9rem', fontWeight: 'bold', color: '#34495E' }}>
+          🏃‍♂️ いちばん ちかい 安全スポット:
+        </span>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button
+            onClick={() => findNearest('Shelter')}
+            style={{
+              background: '#2ECC71',
+              color: 'white',
+              border: 'none',
+              borderRadius: '20px',
+              padding: isMobile ? '0.35rem 0.8rem' : '0.45rem 1.2rem',
+              fontWeight: 'bold',
+              fontSize: isMobile ? '0.8rem' : '0.9rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.3rem',
+              boxShadow: '0 3px 0 #27AE60'
+            }}
+          >
+            🏫 ちかい ひなんじょ
+          </button>
+          <button
+            onClick={() => findNearest('AED')}
+            style={{
+              background: '#E67E22',
+              color: 'white',
+              border: 'none',
+              borderRadius: '20px',
+              padding: isMobile ? '0.35rem 0.8rem' : '0.45rem 1.2rem',
+              fontWeight: 'bold',
+              fontSize: isMobile ? '0.8rem' : '0.9rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.3rem',
+              boxShadow: '0 3px 0 #D35400'
+            }}
+          >
+            🫀 ちかい AED
+          </button>
+        </div>
+      </div>
+
 
             🏠 <span><ruby>場所<rt>ばしょ</rt></ruby>を かえる</span>
           </button>
@@ -716,10 +877,34 @@ function App() {
         </div>
       </header>
       
+
       {/* Category Filter Bar */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
+        gap: '0.4rem',
+        padding: isMobile ? '0.4rem 0.6rem' : '0.5rem 1.5rem',
+        background: '#F8FAFC',
+        borderBottom: '1px solid #CBD5E1',
+        overflowX: 'auto',
+        whiteSpace: 'nowrap',
+        scrollbarWidth: 'none',
+        WebkitOverflowScrolling: 'touch',
+        zIndex: 850
+      }}>
+        <span style={{ fontSize: isMobile ? '0.75rem' : '0.85rem', fontWeight: 'bold', color: '#64748B', flexShrink: 0, marginRight: '0.2rem' }}>
+          🔍 しぼりこみ:
+        </span>
+        <button
+          onClick={() => setActiveCategoryFilter('ALL')}
+          style={{
+            background: activeCategoryFilter === 'ALL' ? '#2C3E50' : '#FFFFFF',
+            color: activeCategoryFilter === 'ALL' ? '#FFFFFF' : '#475569',
+            border: activeCategoryFilter === 'ALL' ? '2px solid #2C3E50' : '1px solid #CBD5E1',
+            borderRadius: '20px',
+            padding: isMobile ? '0.25rem 0.6rem' : '0.35rem 0.8rem',
+            fontSize: isMobile ? '0.75rem' : '0.85rem',
+
         gap: '0.5rem',
         padding: isMobile ? '0.6rem 0.8rem' : '0.75rem 1.5rem',
         background: 'white',
@@ -780,10 +965,102 @@ function App() {
             borderRadius: '20px',
             padding: isMobile ? '0.35rem 0.7rem' : '0.45rem 1rem',
             fontSize: isMobile ? '0.8rem' : '0.9rem',
+
             fontWeight: 'bold',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
+            gap: '0.3rem',
+            boxShadow: activeCategoryFilter === 'ALL' ? '0 2px 6px rgba(44,62,80,0.3)' : 'none',
+            transform: activeCategoryFilter === 'ALL' ? 'scale(1.04)' : 'scale(1)',
+            transition: 'all 0.15s ease-in-out',
+            flexShrink: 0
+          }}
+        >
+          🌈 ぜんぶ <span style={{ background: activeCategoryFilter === 'ALL' ? '#34495E' : '#E2E8F0', color: activeCategoryFilter === 'ALL' ? '#FFF' : '#64748B', borderRadius: '10px', padding: '1px 6px', fontSize: '0.7rem' }}>{categoryCounts.ALL || 0}</span>
+        </button>
+        {Object.entries(typeLabels).map(([catKey, label]) => {
+          const isActive = activeCategoryFilter === catKey;
+          const colorInfo = typeColors[catKey] || { bg: '#9B59B6', text: 'white', shadow: '#8E44AD' };
+          const count = categoryCounts[catKey] || 0;
+          return (
+            <button
+              key={catKey}
+              onClick={() => setActiveCategoryFilter(isActive ? 'ALL' : catKey)}
+              style={{
+                background: isActive ? colorInfo.bg : '#FFFFFF',
+                color: isActive ? colorInfo.text : '#334155',
+                border: isActive ? `2px solid ${colorInfo.shadow}` : '1px solid #CBD5E1',
+                borderRadius: '20px',
+                padding: isMobile ? '0.25rem 0.6rem' : '0.35rem 0.8rem',
+                fontSize: isMobile ? '0.75rem' : '0.85rem',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.3rem',
+                boxShadow: isActive ? `0 3px 8px ${colorInfo.shadow}55` : 'none',
+                transform: isActive ? 'scale(1.04)' : 'scale(1)',
+                transition: 'all 0.15s ease-in-out',
+                flexShrink: 0
+              }}
+            >
+              {label} <span style={{ background: isActive ? 'rgba(0,0,0,0.2)' : '#E2E8F0', color: isActive ? '#FFF' : '#64748B', borderRadius: '10px', padding: '1px 6px', fontSize: '0.7rem' }}>{count}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Nearest Result Floating Notification Banner */}
+      {nearestResult && (
+        <div style={{
+          position: 'fixed',
+          top: isMobile ? '115px' : '125px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 1500,
+          background: nearestResult.categoryName === 'ひなんじょ' ? '#2ECC71' : '#E67E22',
+          color: 'white',
+          padding: isMobile ? '0.6rem 1rem' : '0.8rem 1.4rem',
+          borderRadius: '30px',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.8rem',
+          maxWidth: '92%',
+          fontSize: isMobile ? '0.8rem' : '0.95rem',
+          fontWeight: 'bold',
+          animation: 'fadeIn 0.3s ease-in-out'
+        }}>
+          <span>
+            {nearestResult.categoryName === 'ひなんじょ' ? '🏫' : '🫀'} いちばん ちかい {nearestResult.categoryName}: 
+            <span style={{ textDecoration: 'underline', margin: '0 4px', fontWeight: '900' }}>
+              {nearestResult.hazard.description.split('\n')[0].replace(/【.*?】/, '')}
+            </span>
+            （約{nearestResult.distanceMeters}m / あるいて 約{nearestResult.walkTimeMinutes}分）
+          </span>
+          <button
+            onClick={() => setNearestResult(null)}
+            style={{
+              background: 'rgba(0,0,0,0.2)',
+              border: 'none',
+              borderRadius: '50%',
+              color: 'white',
+              width: '22px',
+              height: '22px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0
+            }}
+            title="とじる"
+          >
+            ✕
+          </button>
+        </div>
+      )}
             gap: '0.4rem',
             flexShrink: 0,
             transition: 'all 0.2s ease',
@@ -823,6 +1100,47 @@ function App() {
             <p style={{ lineHeight: '1.6', marginBottom: '2rem' }}>
               <ruby>自分<rt>じぶん</rt></ruby>の おうちや、よく<ruby>行<rt>い</rt></ruby>く <ruby>場所<rt>ばしょ</rt></ruby>を <ruby>地図<rt>ちず</rt></ruby>の <ruby>真<rt>ま</rt></ruby>ん<ruby>中<rt>なか</rt></ruby>に するよ。
             </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', alignItems: 'center' }}>
+              <button 
+                onClick={() => {
+                  setIsSettingHome(true);
+                  if (isMobile) setActiveTab('map');
+                }}
+                style={{
+                  background: '#E74C3C',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '50px',
+                  padding: '0.9rem 2rem',
+                  fontSize: '1.2rem',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 0 #C0392B',
+                  width: '100%'
+                }}
+              >
+                ちずで えらぶ！📍
+              </button>
+              <button 
+                onClick={() => {
+                  setHomePos([38.3560, 140.3700]);
+                  setMapCenter([38.3560, 140.3700]);
+                  localStorage.setItem('homePos', JSON.stringify([38.3560, 140.3700]));
+                }}
+                style={{
+                  background: '#ECF0F1',
+                  color: '#7F8C8D',
+                  border: 'none',
+                  borderRadius: '50px',
+                  padding: '0.6rem 1.5rem',
+                  fontSize: '0.95rem',
+                  cursor: 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >
+                まずは ちずを みる（天童市）🗺️
+              </button>
+            </div>
             <button 
               onClick={() => {
                 setIsSettingHome(true);
@@ -908,6 +1226,29 @@ function App() {
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             />
             <MapUpdater center={mapCenter} />
+            {nearestResult && (
+              <>
+                <Polyline
+                  positions={[nearestResult.origin, [nearestResult.hazard.lat, nearestResult.hazard.lng]]}
+                  pathOptions={{
+                    color: nearestResult.categoryName === 'ひなんじょ' ? '#2ECC71' : '#E67E22',
+                    dashArray: '8, 8',
+                    weight: 4,
+                    opacity: 0.8
+                  }}
+                />
+                <Circle
+                  center={[nearestResult.hazard.lat, nearestResult.hazard.lng]}
+                  radius={40}
+                  pathOptions={{
+                    color: nearestResult.categoryName === 'ひなんじょ' ? '#2ECC71' : '#E67E22',
+                    fillColor: nearestResult.categoryName === 'ひなんじょ' ? '#2ECC71' : '#E67E22',
+                    fillOpacity: 0.35,
+                    weight: 2
+                  }}
+                />
+              </>
+            )}
             {homePos && (
               <Marker position={homePos} icon={getHomeIcon()}>
                 <Popup>🏠 いつもの <ruby>場所<rt>ばしょ</rt></ruby></Popup>
@@ -939,6 +1280,7 @@ function App() {
                 />
               );
             })}
+
             {filteredHazards.map(h => (
               <Marker 
                 key={h.id} 
@@ -1186,6 +1528,14 @@ function App() {
                   border: '2px solid #BDC3C7',
                   fontSize: '1rem'
                 }}>
+
+                  <option value="Traffic">くるまに ちゅうい 🚗</option>
+                  <option value="Crime">ぼうはん・ふしんしゃ 👮</option>
+                  <option value="Disaster">じしん・かじ 🌊</option>
+                  <option value="Lighting">みちが くらい 🌙</option>
+                  <option value="Shelter">ひなんじょ 🏫</option>
+                  <option value="AED">AED・きゅうきゅう 🫀</option>
+                  <option value="Other">そのほか 🐾</option>
                   <option value="Traffic">車（くるま）・交通（こうつう） 🚗</option>
                   <option value="Crime">不審者（ふしんしゃ）・防犯（ぼうはん） 👮</option>
                   <option value="Disaster">地震（じしん）・火災（かさい） 🌊</option>
@@ -1457,8 +1807,20 @@ function App() {
           
           <hr style={{ border: 'none', borderTop: '1px solid #EEE', display: (!isMobile || (activeTab === 'form' || activeTab === 'list')) ? 'block' : 'none' }} />
           
-          {/* List Section */}
+            {/* List Section */}
           <section style={{ display: (!isMobile || activeTab === 'list') ? 'block' : 'none' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+              <h3 style={{ color: '#2C3E50', fontSize: isMobile ? '1.2rem' : '1.2rem', margin: 0 }}>みんなの ほうこく 🚩</h3>
+              <span style={{ fontSize: '0.85rem', color: '#7F8C8D', fontWeight: 'bold' }}>{filteredHazards.length} 件</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {filteredHazards.length === 0 && (
+                <div style={{ textAlign: 'center', padding: '2rem', color: '#95A5A6', background: '#F8F9FA', borderRadius: '10px' }}>
+                  <p style={{ fontSize: '2rem', margin: '0 0 0.5rem 0' }}>🍃</p>
+                  <p style={{ margin: 0, fontWeight: 'bold' }}>このカテゴリの ほうこくは まだありません。</p>
+                </div>
+              )}
+              {filteredHazards.map(h => (
 
             <h3 style={{ color: '#2C3E50', fontSize: isMobile ? '1.2rem' : '1.2rem', marginBottom: '1rem' }}>みんなの <ruby>報告<rt>ほうこく</rt></ruby> 🚩</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
