@@ -1,0 +1,471 @@
+{
+  "type": "FeatureCollection",
+  "name": "tendo_city_real_hazard_opendata",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "urn:ogc:def:crs:OGC:1.3:CRS84"
+    }
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "TENDO-DIS-001",
+        "category_raw": "洪水浸水想定区域",
+        "name": "倉津川周辺 浸水想定エリア",
+        "city": "天童市",
+        "district": "本町・老野森",
+        "hazard_level": 3,
+        "description_ja": "大雨のときに 倉津川（くらつがわ）があふれる おそれがある ばしょです。かわの ちかくに ちかづかないでね！",
+        "source": "天童市洪水避難地図（オープンデータ）"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [140.3710, 38.3560]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "TENDO-DIS-002",
+        "category_raw": "洪水浸水想定区域",
+        "name": "乱川周辺 浸水想定エリア",
+        "city": "天童市",
+        "district": "乱川",
+        "hazard_level": 4,
+        "description_ja": "たいふうや 大雨で 乱川（みだれがわ）の すいいが あがる おそれがあります。あめが つよい ときは ちかづかないでね！",
+        "source": "天童市洪水避難地図（オープンデータ）"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [140.3800, 38.3850]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "TENDO-DIS-003",
+        "category_raw": "土砂災害警戒区域",
+        "name": "舞鶴山周辺 土砂災害警戒区域",
+        "city": "天童市",
+        "district": "天童",
+        "hazard_level": 4,
+        "description_ja": "舞鶴山（まいづるやま）の すそのです。大雨の あとは がけくずれに ちゅういしてね！",
+        "source": "山形県 土砂災害警戒区域オープンデータ"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [140.3755, 38.3512]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "TENDO-DIS-004",
+        "category_raw": "土砂災害警戒区域",
+        "name": "貫津地区 土砂災害危険箇所",
+        "city": "天童市",
+        "district": "貫津",
+        "hazard_level": 3,
+        "description_ja": "貫津（ぬかづ）地区の やまぎわです。じしんや 大雨の あとは やまくずれに ちゅういしてね！",
+        "source": "山形県 土砂災害警戒区域オープンデータ"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [140.3950, 38.3420]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "TENDO-DIS-005",
+        "category_raw": "土砂災害特別警戒区域",
+        "name": "山口地区 山くずれ警戒エリア",
+        "city": "天童市",
+        "district": "山口",
+        "hazard_level": 5,
+        "description_ja": "山口（やまぐち）地区の がけの ちかくです。あめが ふったら はやく はなれようね！",
+        "source": "山形県 土砂災害警戒区域オープンデータ"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [140.4200, 38.3680]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "TENDO-DIS-006",
+        "category_raw": "洪水浸水想定区域",
+        "name": "押切川周辺 浸水想定エリア",
+        "city": "天童市",
+        "district": "長岡",
+        "hazard_level": 3,
+        "description_ja": "長岡（ながおか）地区を ながれる 押切川（おしきりがわ）の ちかくです。大雨の ときは ちかづかないでね！",
+        "source": "天童市洪水避難地図（オープンデータ）"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [140.3650, 38.3380]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "TENDO-DIS-007",
+        "category_raw": "洪水浸水想定区域",
+        "name": "立谷川周辺 浸水想定エリア",
+        "city": "天童市",
+        "district": "荒谷",
+        "hazard_level": 3,
+        "description_ja": "荒谷（あらや）地区を ながれる 立谷川（たちやがわ）周辺です。川の すいいに ちゅういしようね！",
+        "source": "天童市洪水避難地図（オープンデータ）"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [140.3820, 38.3220]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "TENDO-SLT-001",
+        "category_raw": "指定緊急避難場所",
+        "name": "天童市立中部小学校（避難所）",
+        "city": "天童市",
+        "district": "老野森2-6-4",
+        "hazard_level": 1,
+        "description_ja": "【天童市指定避難所】老野森にある 小学校です。大雨や 地震の ときに にげる 安全な ばしょだよ！",
+        "source": "天童市指定緊急避難場所一覧オープンデータ"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [140.3742, 38.3591]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "TENDO-SLT-002",
+        "category_raw": "指定緊急避難場所",
+        "name": "天童市立南部小学校（避難所）",
+        "city": "天童市",
+        "district": "田鶴町4-2-10",
+        "hazard_level": 1,
+        "description_ja": "【天童市指定避難所】田鶴町にある 小学校です。いざというときに つかえる 安全な ひなんじょだよ！",
+        "source": "天童市指定緊急避難場所一覧オープンデータ"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [140.3768, 38.3440]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "TENDO-SLT-003",
+        "category_raw": "指定緊急避難場所",
+        "name": "天童市立北部小学校（避難所）",
+        "city": "天童市",
+        "district": "乱川4-2-25",
+        "hazard_level": 1,
+        "description_ja": "【天童市指定避難所】乱川にある 小学校です。北エリアの ひなんじょだよ！",
+        "source": "天童市指定緊急避難場所一覧オープンデータ"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [140.3731, 38.3772]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "TENDO-SLT-004",
+        "category_raw": "指定緊急避難場所",
+        "name": "天童市立第一中学校（避難所）",
+        "city": "天童市",
+        "district": "原町10-1",
+        "hazard_level": 1,
+        "description_ja": "【天童市指定避難所】原町にある 中学校です。広い 体育館が ひなんじょになります！",
+        "source": "天童市指定緊急避難場所一覧オープンデータ"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [140.3620, 38.3512]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "TENDO-SLT-005",
+        "category_raw": "指定緊急避難場所",
+        "name": "天童市立長岡小学校（避難所）",
+        "city": "天童市",
+        "district": "東長岡3-3-1",
+        "hazard_level": 1,
+        "description_ja": "【天童市指定避難所】長岡地区の ひなんじょです。家族で にげる ばしょを たしかめておこう！",
+        "source": "天童市指定緊急避難場所一覧オープンデータ"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [140.3665, 38.3370]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "TENDO-SLT-006",
+        "category_raw": "指定緊急避難場所",
+        "name": "天童市立山口小学校（避難所）",
+        "city": "天童市",
+        "district": "山口1919",
+        "hazard_level": 1,
+        "description_ja": "【天童市指定避難所】山口地区の 小学校です。東部の 山あいの 地域の 安全な ばしょだよ！",
+        "source": "天童市指定緊急避難場所一覧オープンデータ"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [140.4190, 38.3695]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "TENDO-CRM-001",
+        "category_raw": "警察署・交番",
+        "name": "天童警察署",
+        "city": "天童市",
+        "district": "糠塚2-4-1",
+        "hazard_level": 1,
+        "description_ja": "【警察署】天童市の 中心にある 警察署です。困ったことがあったら お巡りさんに 相談しよう！",
+        "source": "山形県警察 警察署・交番所在地オープンデータ"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [140.3705, 38.3582]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "TENDO-CRM-002",
+        "category_raw": "警察署・交番",
+        "name": "天童西部交番",
+        "city": "天童市",
+        "district": "交り江4-6-23",
+        "hazard_level": 1,
+        "description_ja": "【交番】西エリアの 交番です。不審者（ふしんしゃ）を見かけたら すぐに 知らせようね！",
+        "source": "山形県警察 警察署・交番所在地オープンデータ"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [140.3550, 38.3565]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "TENDO-CRM-003",
+        "category_raw": "警察署・交番",
+        "name": "天童南駅前交番",
+        "city": "天童市",
+        "district": "芳賀タウン北6-3-6",
+        "hazard_level": 1,
+        "description_ja": "【交番】天童南駅や イオンモールの 近くにある 交番です。助けを もとめられる 安心な 場所だよ！",
+        "source": "山形県警察 警察署・交番所在地オープンデータ"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [140.3690, 38.3340]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "TENDO-CRM-004",
+        "category_raw": "警察署・交番",
+        "name": "山形県警察 山口駐在所",
+        "city": "天童市",
+        "district": "山口1544-11",
+        "hazard_level": 1,
+        "description_ja": "【駐在所】山口地区を まもる 駐在所です。地域を 見守ってくれています！",
+        "source": "山形県警察 警察署・交番所在地オープンデータ"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [140.4180, 38.3710]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "TENDO-CRM-005",
+        "category_raw": "こども110番の家",
+        "name": "こども110番の家（天童温泉街・駅東）",
+        "city": "天童市",
+        "district": "鎌田本町1丁目",
+        "hazard_level": 1,
+        "description_ja": "【こども110番】こわい思いをしたり 迷子になったときに 助けてくれる お店・お家です！",
+        "source": "天童市生活安全推進協議会オープンデータ"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [140.3720, 38.3610]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "TENDO-AED-001",
+        "category_raw": "AED設置場所・救急",
+        "name": "天童市市民プラザ（パルテ AED）",
+        "city": "天童市",
+        "district": "本町1-1-2",
+        "hazard_level": 1,
+        "description_ja": "【AED設置場所】天童駅直結のパルテ1階にAEDがあります。緊急時に誰でも使える救命装置です！",
+        "source": "天童市AED設置場所オープンデータ"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [140.3688, 38.3601]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "TENDO-AED-002",
+        "category_raw": "AED設置場所・救急",
+        "name": "天童市立市民文化会館・市立図書館（AED）",
+        "city": "天童市",
+        "district": "老野森1-1-1",
+        "hazard_level": 1,
+        "description_ja": "【AED設置場所】文化会館および市立図書館のエントランスにAEDが常設されています。",
+        "source": "天童市AED設置場所オープンデータ"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [140.3705, 38.3540]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "TENDO-AED-003",
+        "category_raw": "AED設置場所・救急",
+        "name": "天童市スポーツセンター（AED）",
+        "city": "天童市",
+        "district": "乱川1-1-10",
+        "hazard_level": 1,
+        "description_ja": "【AED設置場所】総合体育館事務室前にAEDがあります。スポーツ時や近隣での救護に使えます。",
+        "source": "天童市AED設置場所オープンデータ"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [140.3542, 38.3615]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "TENDO-AED-004",
+        "category_raw": "AED設置場所・救急",
+        "name": "山形県総合運動公園（NDソフトスタジアム AED）",
+        "city": "天童市",
+        "district": "山王1-1",
+        "hazard_level": 1,
+        "description_ja": "【AED設置場所】総合運動公園中央エントランスおよび陸上競技場にAEDが設置されています。",
+        "source": "山形県広域スポーツ施設AED設置オープンデータ"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [140.3805, 38.3360]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "TENDO-AED-005",
+        "category_raw": "AED設置場所・救急",
+        "name": "天童南部公民館（AED）",
+        "city": "天童市",
+        "district": "田鶴町3-1-1",
+        "hazard_level": 1,
+        "description_ja": "【AED設置場所】南部公民館ロビーにAEDが配備されています。地域避難所の救急拠点です。",
+        "source": "天童市AED設置場所オープンデータ"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [140.3750, 38.3410]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "TENDO-TRF-001",
+        "category_raw": "交通事故多発交差点",
+        "name": "国道13号 天童バイパス交差点",
+        "city": "天童市",
+        "district": "鍬ノ町",
+        "hazard_level": 4,
+        "description_ja": "国道13号線は くるまが とても はやいスピードで とおります。みぎひだりを よく みて わたろうね！",
+        "source": "山形県警察 交通事故オープンデータ"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [140.3605, 38.3585]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "TENDO-TRF-002",
+        "category_raw": "交通事故多発交差点",
+        "name": "国道48号線・乱川交差点",
+        "city": "天童市",
+        "district": "乱川",
+        "hazard_level": 4,
+        "description_ja": "おおきい トラックや くるまが たくさん とおる こうじてんです。しんごうを しっかり まもろうね！",
+        "source": "山形県警察 交通事故オープンデータ"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [140.3700, 38.3750]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "TENDO-TRF-003",
+        "category_raw": "学童通学路 危険箇所",
+        "name": "天童駅前通り 交差点",
+        "city": "天童市",
+        "district": "駅西",
+        "hazard_level": 3,
+        "description_ja": "えきまえの みちは 朝と 夕方に くるまや バイクが おおくなります。とびだしは ぜったいに やめようね！",
+        "source": "天童市通学路交通安全プログラム"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [140.3670, 38.3605]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "TENDO-TRF-004",
+        "category_raw": "交通事故多発交差点",
+        "name": "天童南駅前・イオンモール周辺交差点",
+        "city": "天童市",
+        "district": "芳賀タウン",
+        "hazard_level": 3,
+        "description_ja": "大型商業施設や 駅の 近くで 車が たくさん 行き交います。横断歩道を 渡るときは しっかり 確認しようね！",
+        "source": "山形県警察 交通事故オープンデータ"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [140.3685, 38.3330]
+      }
+    }
+  ]
+}
