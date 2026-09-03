@@ -1,4 +1,4 @@
-
+/// <reference types="vitest/config" />
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
@@ -47,14 +47,13 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,json}'],
         runtimeCaching: [
           {
-            // OpenStreetMapのタイル画像をローカルにキャッシュ (オフライン・高速表示)
             urlPattern: /^https:\/\/[a-c]\.tile\.openstreetmap\.org\/.*/i,
             handler: 'CacheFirst',
             options: {
               cacheName: 'osm-tiles-cache',
               expiration: {
                 maxEntries: 500,
-                maxAgeSeconds: 60 * 60 * 24 * 30 // 30日
+                maxAgeSeconds: 60 * 60 * 24 * 30
               },
               cacheableResponse: {
                 statuses: [0, 200]
@@ -62,14 +61,13 @@ export default defineConfig({
             }
           },
           {
-            // バックエンドAPIのキャッシュ (NetworkFirstで最新優先)
             urlPattern: /\/api\/hazards.*/i,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'api-hazards-cache',
               expiration: {
                 maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24 // 1日
+                maxAgeSeconds: 60 * 60 * 24
               },
               networkTimeoutSeconds: 3
             }
@@ -79,7 +77,7 @@ export default defineConfig({
     })
   ],
   server: {
-    host: true, // スマホ実機(同一LAN)からアクセス可能にする
+    host: true,
     port: 5173,
     proxy: {
       '/api': {
@@ -91,21 +89,11 @@ export default defineConfig({
         changeOrigin: true
       }
     }
-  }
-});
-
-/// <reference types="vitest/config" />
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-
-// https://vite.dev/config/
-export default defineConfig({
-  plugins: [react()],
+  },
   test: {
     globals: true,
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
-    css: false,
-  },
-})
-
+    css: false
+  }
+});

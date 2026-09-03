@@ -1,50 +1,66 @@
 import express from 'express';
-import type { Response } from 'express';
+import type { Response, Request } from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
+import dotenv from 'dotenv';
 
 import { pool, isDbConnected, initializeDatabase, calculateHaversineDistanceMeters } from './db.js';
 import type { HazardData } from './db.js';
 import { buildChildFriendlyAlert } from './alerts.js';
 import type { AlertNotification, LocationTriggerResponse } from './alerts.js';
 import { generateHazardStatistics } from './stats.js';
-
-import { pool, query } from './db/index.js';
 import { uploadImage } from './services/storageService.js';
-
-import dotenv from 'dotenv';
-import { generateSafetyAdvice } from './services/geminiService.js';
 import aiRoutes from './routes/aiRoutes.js';
 
 dotenv.config();
-
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-
 const PORT = process.env.PORT || 3001;
 
-
-const PORT = 3001;
-
-const DATA_FILE = path.join(__dirname, 'data', 'hazards.json');
-const FEEDBACK_FILE = path.join(__dirname, 'data', 'feedback.json');
-
-const PORT = process.env.PORT || 3001;
 const DATA_FILE = process.env.HAZARDS_DATA_FILE || path.join(__dirname, 'data', 'hazards.json');
+const FEEDBACK_FILE = path.join(__dirname, 'data', 'feedback.json');
+const UPLOADS_DIR = path.join(__dirname, 'uploads');
 
-// Ensure uploads directory exists
+// アップロードディレクトリの作成
 if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }
 
+// Multer 設定
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, UPLOADS_DIR);
+  },
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const safeName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}${ext}`;
+    cb(null, safeName);
+  }
+});
 
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (_req, file, cb) => {
+    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (allowedMimeTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only JPG, PNG, GIF, and WEBP images are allowed.'));
+    }
+  }
+});
+
+app.use(cors());
+app.use(bodyParser.json());
+app.use('/uploads', express.static(UPLOADS_DIR));
 
 // SSE (Server-Sent Events) クライアント接続の管理
 const sseClients = new Set<Response>();
@@ -60,84 +76,301 @@ function broadcastAlert(responsePayload: LocationTriggerResponse) {
   }
 }
 
-// Multer setup for image uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, 'uploads'));
+// 補助関数: 画像URLの生成
+const getImageUrl = (req: Request, filename: string) => {
+  const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+  return `${baseUrl}/uploads/${filename}`;
+};
 
-// Multer setup with strict file type and size validation
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, UPLOADS_DIR);
-
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    const safeName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}${ext}`;
-    cb(null, safeName);
-  }
-});
-
-const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
-  fileFilter: (req, file, cb) => {
-    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-    if (allowedMimeTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file type. Only JPG, PNG, GIF, and WEBP images are allowed.'));
-    }
-  }
-});
-
-app.use(cors());
-app.use(bodyParser.json());
-app.use('/uploads', express.static(UPLOADS_DIR));
-
-// Helper: Check DB connectivity
-let isDbConnected = false;
-async function checkDbConnection() {
-  try {
-    await query('SELECT 1');
-    isDbConnected = true;
-    console.log('✅ Connected to PostgreSQL + PostGIS Database successfully.');
-  } catch (err) {
-    isDbConnected = false;
-    console.warn('⚠️ Could not connect to PostgreSQL DB. Falling back to hazards.json mode.', (err as Error).message);
-  }
-}
-
-
-// 補助関数: hazards.json の読み書き（バックアップ・フォールバック用）
-function readLocalHazards(): HazardData[] {
+// 補助関数: hazards.json の読み書き（フォールバック用）
+function readLocalHazards(): any[] {
   if (!fs.existsSync(DATA_FILE)) return [];
-  const data = fs.readFileSync(DATA_FILE, 'utf8');
   try {
+    const data = fs.readFileSync(DATA_FILE, 'utf8');
     return JSON.parse(data || '[]');
   } catch {
     return [];
   }
 }
 
-function writeLocalHazards(hazards: HazardData[]) {
+function writeLocalHazards(hazards: any[]) {
   fs.writeFileSync(DATA_FILE, JSON.stringify(hazards, null, 2), 'utf8');
 }
 
+// Gemini AI モジュールルーター
+app.use('/api/ai', aiRoutes);
+
 /**
- * 📍 PostGIS空間演算API: 半径Xm以内の危険箇所を取得
- * GET /api/hazards/nearby?lat=35.6895&lng=139.6917&radius=500
+ * 📍 全ての危険箇所を取得 (DB or hazards.json)
+ * GET /api/hazards
+ */
+app.get('/api/hazards', async (_req, res) => {
+  try {
+    if (isDbConnected()) {
+      const result = await pool.query(`
+        SELECT 
+          id,
+          type,
+          description,
+          image_url AS "imageUrl",
+          ST_Y(geom) AS lat,
+          ST_X(geom) AS lng,
+          COALESCE(comments, '[]'::jsonb) AS comments,
+          created_at AS "createdAt"
+        FROM hazards
+        ORDER BY id ASC;
+      `);
+      return res.json(result.rows);
+    }
+
+    // Fallback: JSON
+    const hazards = readLocalHazards();
+    res.json(hazards);
+  } catch (err: any) {
+    console.error('Error reading hazards:', err);
+    res.status(500).json({ error: 'Error reading data', details: err.message });
+  }
+});
+
+/**
+ * 📍 新規危険箇所の投稿
+ * POST /api/hazards
+ */
+app.post('/api/hazards', upload.single('image'), async (req, res) => {
+  try {
+    const { lat, lng, type, description, level, timeOfDay, dangerLevel } = req.body;
+    const parsedLat = parseFloat(lat);
+    const parsedLng = parseFloat(lng);
+
+    if (isNaN(parsedLat) || isNaN(parsedLng)) {
+      return res.status(400).json({ error: 'Invalid coordinates' });
+    }
+
+    let imageUrl: string | null = null;
+    if (req.file) {
+      const uploadResult = await uploadImage(req.file, PORT);
+      imageUrl = uploadResult.url;
+    }
+
+    const hazardLevel = level ? parseInt(level) : (dangerLevel ? parseInt(dangerLevel) : 3);
+    const hazardTime = timeOfDay || 'all';
+
+    if (isDbConnected()) {
+      const result = await pool.query(
+        `INSERT INTO hazards (type, description, image_url, comments, geom)
+         VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($5, $6), 4326))
+         RETURNING id, type, description, image_url AS "imageUrl", ST_Y(geom) AS lat, ST_X(geom) AS lng, comments;`,
+        [type, description, imageUrl, JSON.stringify([]), parsedLng, parsedLat]
+      );
+      const newHazard = {
+        ...result.rows[0],
+        level: hazardLevel,
+        timeOfDay: hazardTime
+      };
+
+      // hazards.json もバックアップ同期
+      const localHazards = readLocalHazards();
+      localHazards.push(newHazard);
+      writeLocalHazards(localHazards);
+
+      return res.status(201).json(newHazard);
+    }
+
+    // Fallback: JSON
+    const hazards = readLocalHazards();
+    const newId = hazards.length > 0 ? Math.max(...hazards.map((h: any) => h.id || 0)) + 1 : 1;
+    const newHazard = {
+      id: newId,
+      lat: parsedLat,
+      lng: parsedLng,
+      type,
+      description,
+      level: hazardLevel,
+      timeOfDay: hazardTime,
+      imageUrl,
+      comments: []
+    };
+
+    hazards.push(newHazard);
+    writeLocalHazards(hazards);
+    res.status(201).json(newHazard);
+  } catch (err: any) {
+    console.error('Error creating hazard:', err);
+    res.status(500).json({ error: 'Error saving data', details: err.message });
+  }
+});
+
+/**
+ * 📍 危険箇所の更新
+ * PUT /api/hazards/:id
+ */
+app.put('/api/hazards/:id', upload.single('image'), async (req, res) => {
+  try {
+    const id = parseInt(req.params.id as string, 10);
+    const { type, description, level, timeOfDay, dangerLevel } = req.body;
+
+    let imageUrl: string | null = req.body.imageUrl === 'null' ? null : req.body.imageUrl;
+    if (req.file) {
+      const uploadResult = await uploadImage(req.file, PORT);
+      imageUrl = uploadResult.url;
+    }
+
+    const hazardLevel = level ? parseInt(level) : (dangerLevel ? parseInt(dangerLevel) : 3);
+    const hazardTime = timeOfDay || 'all';
+
+    if (isDbConnected()) {
+      const result = await pool.query(
+        `UPDATE hazards 
+         SET type = $1, description = $2, image_url = $3
+         WHERE id = $4
+         RETURNING id, type, description, image_url AS "imageUrl", ST_Y(geom) AS lat, ST_X(geom) AS lng, comments;`,
+        [type, description, imageUrl, id]
+      );
+
+      if (result.rowCount === 0) return res.status(404).json({ error: 'Hazard not found' });
+
+      const updated = {
+        ...result.rows[0],
+        level: hazardLevel,
+        timeOfDay: hazardTime
+      };
+
+      // hazards.json 同期
+      const hazards = readLocalHazards();
+      const index = hazards.findIndex((h: any) => h.id === id);
+      if (index !== -1) {
+        hazards[index] = { ...hazards[index], ...updated };
+        writeLocalHazards(hazards);
+      }
+
+      return res.json(updated);
+    }
+
+    // Fallback: JSON
+    const hazards = readLocalHazards();
+    const index = hazards.findIndex((h: any) => h.id === id);
+    if (index === -1) return res.status(404).json({ error: 'Hazard not found' });
+
+    hazards[index] = {
+      ...hazards[index],
+      type: type || hazards[index].type,
+      description: description || hazards[index].description,
+      level: hazardLevel || hazards[index].level,
+      timeOfDay: hazardTime || hazards[index].timeOfDay,
+      imageUrl: imageUrl !== undefined ? imageUrl : hazards[index].imageUrl
+    };
+
+    writeLocalHazards(hazards);
+    res.json(hazards[index]);
+  } catch (err: any) {
+    console.error('Error updating hazard:', err);
+    res.status(500).json({ error: 'Error updating data', details: err.message });
+  }
+});
+
+/**
+ * 📍 危険箇所の削除（解決済み）
+ * DELETE /api/hazards/:id
+ */
+app.delete('/api/hazards/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id as string, 10);
+
+    if (isDbConnected()) {
+      const result = await pool.query(`DELETE FROM hazards WHERE id = $1`, [id]);
+      if (result.rowCount === 0) return res.status(404).send('Hazard not found');
+
+      const hazards = readLocalHazards();
+      const filtered = hazards.filter((h: any) => h.id !== id);
+      writeLocalHazards(filtered);
+
+      return res.status(200).send('Hazard resolved');
+    }
+
+    // Fallback: JSON
+    const hazards = readLocalHazards();
+    const filteredHazards = hazards.filter((h: any) => h.id !== id);
+    writeLocalHazards(filteredHazards);
+    res.status(200).send('Hazard resolved');
+  } catch (err: any) {
+    console.error('Error deleting hazard:', err);
+    res.status(500).json({ error: 'Error deleting data', details: err.message });
+  }
+});
+
+/**
+ * 📍 コメントの投稿
+ * POST /api/hazards/:id/comments
+ */
+app.post('/api/hazards/:id/comments', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id as string, 10);
+    const { text } = req.body;
+
+    if (!text) return res.status(400).send('Comment text is required');
+
+    const newComment = {
+      id: Date.now(),
+      text,
+      createdAt: new Date().toISOString()
+    };
+
+    if (isDbConnected()) {
+      const result = await pool.query(
+        `UPDATE hazards 
+         SET comments = COALESCE(comments, '[]'::jsonb) || $1::jsonb
+         WHERE id = $2
+         RETURNING id;`,
+        [JSON.stringify([newComment]), id]
+      );
+
+      if (result.rowCount === 0) return res.status(404).send('Hazard not found');
+
+      const hazards = readLocalHazards();
+      const index = hazards.findIndex((h: any) => h.id === id);
+      if (index !== -1) {
+        if (!hazards[index].comments) hazards[index].comments = [];
+        hazards[index].comments.push(newComment);
+        writeLocalHazards(hazards);
+      }
+
+      return res.status(201).json(newComment);
+    }
+
+    // Fallback: JSON
+    const hazards = readLocalHazards();
+    const index = hazards.findIndex((h: any) => h.id === id);
+    if (index === -1) return res.status(404).send('Hazard not found');
+
+    if (!hazards[index].comments) {
+      hazards[index].comments = [];
+    }
+    hazards[index].comments.push(newComment);
+    writeLocalHazards(hazards);
+
+    res.status(201).json(newComment);
+  } catch (err: any) {
+    console.error('Error adding comment:', err);
+    res.status(500).json({ error: 'Error adding comment', details: err.message });
+  }
+});
+
+/**
+ * 📍 PostGIS空間演算 & 近傍検索API: 半径Xm以内の危険箇所・避難所を取得
+ * GET /api/hazards/nearby?lat=35.6895&lng=139.6917&radius=500&type=Shelter
  */
 app.get('/api/hazards/nearby', async (req, res) => {
   try {
     const latStr = req.query.lat as string | undefined;
     const lngStr = req.query.lng as string | undefined;
     const radiusStr = req.query.radius as string | undefined;
+    const type = req.query.type as string | undefined;
+    const limitStr = req.query.limit as string | undefined;
 
     const lat = latStr !== undefined ? parseFloat(latStr) : NaN;
     const lng = lngStr !== undefined ? parseFloat(lngStr) : NaN;
-    // デフォルト半径500m
-    const radius = radiusStr !== undefined ? parseFloat(radiusStr) : 500;
+    const radius = radiusStr !== undefined ? parseFloat(radiusStr) : 5000;
+    const limit = limitStr !== undefined ? parseInt(limitStr, 10) : 50;
 
     if (isNaN(lat) || isNaN(lng)) {
       return res.status(400).json({
@@ -145,15 +378,9 @@ app.get('/api/hazards/nearby', async (req, res) => {
       });
     }
 
-    if (radius <= 0 || radius > 50000) {
-      return res.status(400).json({
-        error: 'radius (半径m) は 1m 〜 50,000m の範囲で指定してください。'
-      });
-    }
-
-    // 1. PostGIS が接続されている場合 (ST_DWithin による高速空間検索)
+    // 1. PostGIS 空間演算 (ST_DWithin)
     if (isDbConnected()) {
-      const query = `
+      let querySql = `
         SELECT 
           id,
           type,
@@ -168,41 +395,53 @@ app.get('/api/hazards/nearby', async (req, res) => {
               ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography
             )::numeric, 1
           ) AS "distanceMeters"
-        FROM 
-          hazards
-        WHERE 
-          ST_DWithin(
-            geom::geography,
-            ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
-            $3
-          )
-        ORDER BY 
-          "distanceMeters" ASC;
+        FROM hazards
+        WHERE ST_DWithin(
+          geom::geography,
+          ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
+          $3
+        )
       `;
+      const params: any[] = [lng, lat, radius];
 
-      const result = await pool.query(query, [lng, lat, radius]);
+      if (type) {
+        querySql += ` AND type = $4`;
+        params.push(type);
+      }
+
+      querySql += ` ORDER BY "distanceMeters" ASC LIMIT ${limit};`;
+
+      const result = await pool.query(querySql, params);
+
+      const hazards = result.rows.map((h: any) => ({
+        ...h,
+        walkTimeMinutes: Math.max(1, Math.round(h.distanceMeters / 80))
+      }));
 
       return res.json({
         center: { lat, lng },
         radiusMeters: radius,
-        count: result.rows.length,
+        count: hazards.length,
         engine: 'PostGIS (ST_DWithin)',
-        hazards: result.rows
+        hazards
       });
     }
 
     // 2. PostGIS 未接続時のフォールバック (Haversine球面距離計算)
     const allHazards = readLocalHazards();
-    const nearbyHazards = allHazards
-      .map(h => {
+    let nearbyHazards = allHazards
+      .filter((h: any) => !type || h.type === type)
+      .map((h: any) => {
         const distanceMeters = calculateHaversineDistanceMeters(lat, lng, h.lat, h.lng);
         return {
           ...h,
-          distanceMeters
+          distanceMeters,
+          walkTimeMinutes: Math.max(1, Math.round(distanceMeters / 80))
         };
       })
-      .filter(h => h.distanceMeters <= radius)
-      .sort((a, b) => a.distanceMeters - b.distanceMeters);
+      .filter((h: any) => h.distanceMeters <= radius)
+      .sort((a: any, b: any) => a.distanceMeters - b.distanceMeters)
+      .slice(0, limit);
 
     return res.json({
       center: { lat, lng },
@@ -218,11 +457,10 @@ app.get('/api/hazards/nearby', async (req, res) => {
 });
 
 /**
- * 🔔 接近通知トリガーAPI: 現在位置を受け取り、接近中の危険箇所アラートを発火
+ * 🔔 接近通知トリガーAPI: 現在位置を受け取り接近アラートを発火
  * POST /api/alerts/trigger または POST /api/alerts/check
- * Body: { "lat": 35.6895, "lng": 139.6917, "alertRadius": 50, "deviceId": "user-123" }
  */
-const handleLocationTrigger = async (req: express.Request, res: express.Response) => {
+const handleLocationTrigger = async (req: Request, res: Response) => {
   try {
     const { lat, lng, alertRadius, deviceId } = req.body;
     const parsedLat = typeof lat === 'number' ? lat : parseFloat(lat);
@@ -238,7 +476,7 @@ const handleLocationTrigger = async (req: express.Request, res: express.Response
     let nearbyHazards: HazardData[] = [];
 
     if (isDbConnected()) {
-      const query = `
+      const querySql = `
         SELECT 
           id,
           type,
@@ -253,32 +491,27 @@ const handleLocationTrigger = async (req: express.Request, res: express.Response
               ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography
             )::numeric, 1
           ) AS "distanceMeters"
-        FROM 
-          hazards
-        WHERE 
-          ST_DWithin(
-            geom::geography,
-            ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
-            $3
-          )
-        ORDER BY 
-          "distanceMeters" ASC;
+        FROM hazards
+        WHERE ST_DWithin(
+          geom::geography,
+          ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
+          $3
+        )
+        ORDER BY "distanceMeters" ASC;
       `;
-      const result = await pool.query(query, [parsedLng, parsedLat, radius]);
+      const result = await pool.query(querySql, [parsedLng, parsedLat, radius]);
       nearbyHazards = result.rows;
     } else {
-      // Fallback: Haversine
       const allHazards = readLocalHazards();
       nearbyHazards = allHazards
-        .map(h => ({
+        .map((h: any) => ({
           ...h,
           distanceMeters: calculateHaversineDistanceMeters(parsedLat, parsedLng, h.lat, h.lng)
         }))
-        .filter(h => (h.distanceMeters ?? Infinity) <= radius)
-        .sort((a, b) => (a.distanceMeters ?? 0) - (b.distanceMeters ?? 0));
+        .filter((h: any) => (h.distanceMeters ?? Infinity) <= radius)
+        .sort((a: any, b: any) => (a.distanceMeters ?? 0) - (b.distanceMeters ?? 0));
     }
 
-    // 子供向け親しみやすいアラート文の構築
     const alerts: AlertNotification[] = nearbyHazards.map(h =>
       buildChildFriendlyAlert(h, h.distanceMeters ?? 0)
     );
@@ -292,21 +525,6 @@ const handleLocationTrigger = async (req: express.Request, res: express.Response
       highestLevel = 'info';
     }
 
-
-// Haversine formula for calculating distance in meters between two lat/lng points
-function calculateDistanceMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371000; // Earth radius in meters
-  const toRad = (deg: number) => (deg * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return Math.round(R * c);
-}
-
-// Get all hazards
     const payload: LocationTriggerResponse = {
       timestamp: new Date().toISOString(),
       currentLocation: {
@@ -320,7 +538,6 @@ function calculateDistanceMeters(lat1: number, lng1: number, lat2: number, lng2:
       highestLevel
     };
 
-    // リアルタイム接続中のリスナー（保護者画面や他端末）へSSEブロードキャスト
     if (payload.hasAlert) {
       broadcastAlert(payload);
     }
@@ -343,23 +560,20 @@ app.post('/api/alerts/check', handleLocationTrigger);
  * 📡 接近アラート受信用 Server-Sent Events (SSE) ストリーム
  * GET /api/alerts/stream
  */
-app.get('/api/alerts/stream', (req, res) => {
+app.get('/api/alerts/stream', (_req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders();
 
   sseClients.add(res);
-
-  // 初期接続確認メッセージ
   res.write(`data: ${JSON.stringify({ type: 'connected', message: '接近アラート通知ストリームに接続しました' })}\n\n`);
 
-  // キープアライブ (25秒毎)
   const keepAlive = setInterval(() => {
     res.write(': keep-alive\n\n');
   }, 25000);
 
-  req.on('close', () => {
+  _req.on('close', () => {
     clearInterval(keepAlive);
     sseClients.delete(res);
   });
@@ -368,9 +582,6 @@ app.get('/api/alerts/stream', (req, res) => {
 /**
  * 📊 エリアごとの危険度統計データ取得API
  * GET /api/hazards/stats
- * クエリパラメータ:
- *   lat, lng, radius (任意: 指定位置の半径内のみ集計)
- *   gridSize (任意: ホットスポット分割のメッシュ解像度、度単位)
  */
 app.get('/api/hazards/stats', async (req, res) => {
   try {
@@ -384,182 +595,7 @@ app.get('/api/hazards/stats', async (req, res) => {
     const radius = radiusStr !== undefined ? parseFloat(radiusStr) : undefined;
     const gridSize = gridSizeStr !== undefined ? parseFloat(gridSizeStr) : undefined;
 
-// Helper for JSON Fallback read
-function readJsonData() {
-  if (!fs.existsSync(DATA_FILE)) return [];
-  const raw = fs.readFileSync(DATA_FILE, 'utf8');
-  return JSON.parse(raw);
-}
-
-// Helper for JSON Fallback write
-function writeJsonData(data: any) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf8');
-}
-
-// Get all hazards (DB with JSON fallback)
-app.get('/api/hazards', async (req, res) => {
-  if (isDbConnected) {
-    try {
-      const sql = `
-        SELECT 
-          h.id, 
-          h.lat, 
-          h.lng, 
-          h.type, 
-          h.description, 
-          h.image_url AS "imageUrl", 
-          h.danger_level AS "dangerLevel",
-          COALESCE(
-            JSON_AGG(
-              JSON_BUILD_OBJECT('id', c.id, 'text', c.text, 'createdAt', c.created_at)
-            ) FILTER (WHERE c.id IS NOT NULL), '[]'
-          ) AS comments
-        FROM hazards h
-        LEFT JOIN comments c ON h.id = c.hazard_id
-        GROUP BY h.id
-        ORDER BY h.id ASC;
-      `;
-      const result = await query(sql);
-      return res.json(result.rows);
-    } catch (err) {
-      console.error('Error fetching hazards from DB:', err);
-    }
-  }
-
-  // Fallback to hazards.json
-  try {
-    const hazards = readJsonData();
-    res.json(hazards);
-  } catch (err) {
-    res.status(500).send('Error reading hazard data');
-  }
-});
-
-// Gemini AI モジュールルーターのマウント
-app.use('/api/ai', aiRoutes);
-app.get('/api/hazards', (req, res) => {
-  fs.readFile(DATA_FILE, 'utf8', (err, data) => {
-    if (err) {
-      return res.status(500).send('Error reading data file');
-    }
-  }
-
-  // DB未接続時の簡易距離計算フォールバック
-  try {
-    const hazards = readJsonData();
-    const filtered = hazards.filter((h: any) => {
-      // 簡易的な距離計算 (Haversine formula 相当)
-      const R = 6371000; // 地球の半径 (m)
-      const dLat = (h.lat - latitude) * Math.PI / 180;
-      const dLng = (h.lng - longitude) * Math.PI / 180;
-      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                Math.cos(latitude * Math.PI / 180) * Math.cos(h.lat * Math.PI / 180) *
-                Math.sin(dLng / 2) * Math.sin(dLng / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      const dist = R * c;
-      h.distanceMeters = Math.round(dist * 10) / 10;
-      return dist <= searchRadius;
-    });
-    res.json(filtered);
-  } catch (err) {
-    res.status(500).send('Error computing nearby hazards');
-  }
-});
-
-// Get nearby hazards sorted by distance (GIS Spatial Query)
-app.get('/api/hazards/nearby', (req, res) => {
-  const lat = parseFloat(req.query.lat as string);
-  const lng = parseFloat(req.query.lng as string);
-  const type = req.query.type as string;
-  const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
-  const maxDistance = req.query.maxDistance ? parseFloat(req.query.maxDistance as string) : null;
-
-  if (isNaN(lat) || isNaN(lng)) {
-    return res.status(400).json({ error: 'Valid lat and lng query parameters are required' });
-  }
-
-  fs.readFile(DATA_FILE, 'utf8', (err, data) => {
-    if (err) return res.status(500).send('Error reading data file');
-    let hazards = JSON.parse(data);
-
-    if (type) {
-      hazards = hazards.filter((h: any) => h.type === type);
-    }
-
-    const withDistance = hazards.map((h: any) => {
-      const distanceMeters = calculateDistanceMeters(lat, lng, h.lat, h.lng);
-      return {
-        ...h,
-        distanceMeters,
-        walkTimeMinutes: Math.max(1, Math.round(distanceMeters / 80)) // 80m/min as standard walking speed
-      };
-    });
-
-    let filtered = withDistance;
-    if (maxDistance !== null) {
-      filtered = filtered.filter((h: any) => h.distanceMeters <= maxDistance);
-    }
-
-    filtered.sort((a: any, b: any) => a.distanceMeters - b.distanceMeters);
-    res.json(filtered.slice(0, limit));
-  });
-});
-const getImageUrl = (req: express.Request, filename: string) => {
-  const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
-  return `${baseUrl}/uploads/${filename}`;
-};
-
-// Post a new hazard with image
-app.post('/api/hazards', upload.single('image'), (req, res) => {
-
-  const { lat, lng, type, description } = req.body;
-  const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
-
-  const { lat, lng, type, description, level, timeOfDay } = req.body;
-  const imageUrl = req.file ？ getImageUrl(req, req.file.filename) :null;
-
-
-  fs.readFile(DATA_FILE, 'utf8', (err, data) => {
-    if (err) return res.status(500).send('Error reading data file');
-    const hazards = JSON.parse(data);
-    const newId = hazards.length > 0 ? Math.max(...hazards.map((h: any) => h.id || 0)) + 1 : 1;
-    
-    const newHazard = {
-      id: newId,
-      lat: latitude,
-      lng: longitude,
-      type,
-      description,
-      level: level ? parseInt(level) : 3,
-      timeOfDay: timeOfDay || 'all',
-      imageUrl,
-      dangerLevel: danger,
-      comments: []
-    };
-    hazards.push(newHazard);
-    fs.writeFile(DATA_FILE, JSON.stringify(hazards, null, 2), (err) => {
-      if (err) return res.status(500).send('Error saving data');
-      res.status(201).json(newHazard);
-    });
-  } catch (error) {
-    console.error('Error adding hazard:', error);
-    res.status(500).send('Error processing hazard registration');
-  }
-});
-
-// Post a comment to a hazard
-app.post('/api/hazards/:id/comments', (req, res) => {
-
-  const id = parseInt(req.params.id as string, 10);
-
-  const id = parseInt(req.params.id as string);
-
-  const { text } = req.body;
-
-
-    let allHazards: HazardData[] = [];
-
-
+    let allHazards: any[] = [];
     if (isDbConnected()) {
       const result = await pool.query(`
         SELECT 
@@ -586,386 +622,26 @@ app.post('/api/hazards/:id/comments', (req, res) => {
   }
 });
 
-app.get('/api/hazards/statistics', async (req, res) => {
-  // Alias for /api/hazards/stats
+app.get('/api/hazards/statistics', (req, res) => {
   const query = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
   res.redirect(307, `/api/hazards/stats${query}`);
 });
 
-  if (isDbConnected) {
-    try {
-      const sql = `
-        INSERT INTO comments (hazard_id, text)
-        VALUES ($1, $2)
-        RETURNING id, hazard_id AS "hazardId", text, created_at AS "createdAt";
-      `;
-      const result = await query(sql, [id, text]);
-      return res.status(201).json(result.rows[0]);
-    } catch (err) {
-      console.error('Error inserting comment into DB:', err);
-    }
-  }
-
-  // Fallback to hazards.json
-  try {
-    const hazards = readJsonData();
-    const index = hazards.findIndex((h: any) => h.id === id);
-    if (index === -1) return res.status(404).send('Hazard not found');
-
-
 /**
- * 全ての危険箇所を取得
- * GET /api/hazards
+ * 💌 ユーザーテスト・フィードバック API
  */
-app.get('/api/hazards', async (req, res) => {
-  try {
-    if (isDbConnected()) {
-      const result = await pool.query(`
-        SELECT 
-          id,
-          type,
-          description,
-          image_url AS "imageUrl",
-          ST_Y(geom) AS lat,
-          ST_X(geom) AS lng,
-          COALESCE(comments, '[]'::jsonb) AS comments
-        FROM hazards
-        ORDER BY id ASC;
-      `);
-      return res.json(result.rows);
-    }
-
-    // Fallback: JSON
-    const hazards = readLocalHazards();
-    res.json(hazards);
-  } catch (err: any) {
-    console.error('Error reading hazards:', err);
-    res.status(500).send('Error reading data');
-  }
-});
-
-/**
- * 新規危険箇所の投稿
- * POST /api/hazards
- */
-app.post('/api/hazards', upload.single('image'), async (req, res) => {
-  try {
-    const { lat, lng, type, description } = req.body;
-    const imageUrl = req.file ? `http://localhost:${PORT}/uploads/${req.file.filename}` : null;
-    const parsedLat = parseFloat(lat);
-    const parsedLng = parseFloat(lng);
-
-    if (isNaN(parsedLat) || isNaN(parsedLng)) {
-      return res.status(400).send('Invalid coordinates');
-    }
-
-    if (isDbConnected()) {
-      const result = await pool.query(
-        `INSERT INTO hazards (type, description, image_url, comments, geom)
-         VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($5, $6), 4326))
-         RETURNING id, type, description, image_url AS "imageUrl", ST_Y(geom) AS lat, ST_X(geom) AS lng, comments;`,
-        [type, description, imageUrl, JSON.stringify([]), parsedLng, parsedLat]
-      );
-      const newHazard: HazardData = result.rows[0];
-
-      // hazards.json もバックアップ同期
-      const localHazards = readLocalHazards();
-      localHazards.push(newHazard);
-      writeLocalHazards(localHazards);
-
-      return res.status(201).json(newHazard);
-    }
-
-    // Fallback: JSON
-    const hazards = readLocalHazards();
-    const lastHazard = hazards.length > 0 ? hazards[hazards.length - 1] : undefined;
-    const newId = lastHazard ? lastHazard.id + 1 : 1;
-    const newHazard: HazardData = {
-      id: newId,
-      lat: parsedLat,
-      lng: parsedLng,
-      type,
-      description,
-      imageUrl: imageUrl ?? null,
-      comments: []
-    };
-
-    hazards.push(newHazard);
-    writeLocalHazards(hazards);
-    res.status(201).json(newHazard);
-  } catch (err: any) {
-    console.error('Error creating hazard:', err);
-    res.status(500).send('Error saving data');
-  }
-});
-
-/**
- * コメントの投稿
- * POST /api/hazards/:id/comments
- */
-app.post('/api/hazards/:id/comments', async (req, res) => {
-  try {
-    const idParam = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-    const id = parseInt(idParam || '0', 10);
-    const { text } = req.body;
-
-    if (!text) return res.status(400).send('Comment text is required');
-
-    const newComment = {
-      id: Date.now(),
-      text,
-      createdAt: new Date().toISOString()
-    };
-
-
-    if (isDbConnected()) {
-      const result = await pool.query(
-        `UPDATE hazards 
-         SET comments = COALESCE(comments, '[]'::jsonb) || $1::jsonb
-         WHERE id = $2
-         RETURNING id;`,
-        [JSON.stringify([newComment]), id]
-      );
-
-      if (result.rowCount === 0) return res.status(404).send('Hazard not found');
-
-      // 同期
-      const hazards = readLocalHazards();
-      const index = hazards.findIndex(h => h.id === id);
-      const targetHazard = index !== -1 ? hazards[index] : undefined;
-      if (targetHazard) {
-        if (!targetHazard.comments) targetHazard.comments = [];
-        targetHazard.comments.push(newComment);
-        writeLocalHazards(hazards);
-      }
-
-      return res.status(201).json(newComment);
-    }
-
-    // Fallback: JSON
-    const hazards = readLocalHazards();
-    const index = hazards.findIndex(h => h.id === id);
-    const targetHazard = index !== -1 ? hazards[index] : undefined;
-    if (!targetHazard) return res.status(404).send('Hazard not found');
-
-    if (!targetHazard.comments) {
-      targetHazard.comments = [];
-    }
-    targetHazard.comments.push(newComment);
-    writeLocalHazards(hazards);
-
-    res.status(201).json(newComment);
-  } catch (err: any) {
-    console.error('Error adding comment:', err);
-    res.status(500).send('Error saving data');
-  }
-});
-
-/**
- * 危険箇所の更新
- * PUT /api/hazards/:id
- */
-app.put('/api/hazards/:id', upload.single('image'), async (req, res) => {
-  try {
-    const idParam = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-    const id = parseInt(idParam || '0', 10);
-    const { type, description } = req.body;
-    const imageUrl = req.file ? `http://localhost:${PORT}/uploads/${req.file.filename}` : req.body.imageUrl;
-    const finalImageUrl = imageUrl === 'null' ? null : (imageUrl || null);
-
-    if (isDbConnected()) {
-      const result = await pool.query(
-        `UPDATE hazards 
-         SET type = $1, description = $2, image_url = $3
-         WHERE id = $4
-         RETURNING id, type, description, image_url AS "imageUrl", ST_Y(geom) AS lat, ST_X(geom) AS lng, comments;`,
-        [type, description, finalImageUrl, id]
-      );
-
-      if (result.rowCount === 0) return res.status(404).send('Hazard not found');
-
-      const updated: HazardData = result.rows[0];
-      // 同期
-      const hazards = readLocalHazards();
-      const index = hazards.findIndex(h => h.id === id);
-      const targetHazard = index !== -1 ? hazards[index] : undefined;
-      if (targetHazard) {
-        hazards[index] = {
-          ...targetHazard,
-          type,
-          description,
-          imageUrl: finalImageUrl
-        };
-        writeLocalHazards(hazards);
-      }
-
-      return res.json(updated);
-    }
-
-    // Fallback: JSON
-    const hazards = readLocalHazards();
-    const index = hazards.findIndex(h => h.id === id);
-    const targetHazard = index !== -1 ? hazards[index] : undefined;
-    if (!targetHazard) return res.status(404).send('Hazard not found');
-
-    hazards[index].comments.push(newComment);
-    writeJsonData(hazards);
-    res.status(201).json(newComment);
-  } catch (err) {
-    res.status(500).send('Error saving comment data');
-  }
-});
-
-// Delete a hazard (Resolve)
-
-app.delete('/api/hazards/:id', (req, res) => {
-
-  const id = parseInt(req.params.id as string, 10);
-
-  const id = parseInt(req.params.id as string);
-
-  fs.readFile(DATA_FILE, 'utf8', (err, data) => {
-    if (err) return res.status(500).send('Error reading data file');
-    const hazards = JSON.parse(data);
-    const filteredHazards = hazards.filter((h: any) => h.id !== id);
-    writeJsonData(filteredHazards);
-    res.status(200).send('Hazard resolved');
-  } catch (err) {
-    res.status(500).send('Error deleting hazard data');
-  }
-});
-
-
-// Update a hazard
-app.put('/api/hazards/:id', upload.single('image'), (req, res) => {
-  const id = parseInt(req.params.id as string, 10);
-  const { type, description } = req.body;
-  const imageUrl = req.file ? `/uploads/${req.file.filename}` : req.body.imageUrl;
-
-
-
-// Update
-
-app.put('/api/hazards/:id', upload.single('image'), async (req, res) => {
-  const id = parseInt(req.params.id);
-  const { type, description, dangerLevel } = req.body;
-  
-  let imageUrl: string | null = req.body.imageUrl === 'null' ? null : req.body.imageUrl;
-  if (req.file) {
-    const uploadResult = await uploadImage(req.file, PORT);
-    imageUrl = uploadResult.url;
-  }
-
-app.put('/api/hazards/:id', upload.single('image'), (req, res) => {
-  const id = parseInt(req.params.id as string);
-  const { type, description, level, timeOfDay } =req.body;
-  const imageUrl =req.file ? getImageUrl(req, req.file.filename) : req.body.imageUrl;
-
-
-  if (isDbConnected) {
-    try {
-      const sql = `
-        UPDATE hazards
-        SET type = $1, description = $2, image_url = $3, danger_level = COALESCE($4, danger_level), updated_at = CURRENT_TIMESTAMP
-        WHERE id = $5
-        RETURNING id, lat, lng, type, description, image_url AS "imageUrl", danger_level AS "dangerLevel";
-      `;
-      const result = await query(sql, [type, description, imageUrl === 'null' ? null : imageUrl, dangerLevel ? parseInt(dangerLevel) : null, id]);
-      if (result.rowCount === 0) return res.status(404).send('Hazard not found');
-      return res.json(result.rows[0]);
-    } catch (err) {
-      console.error('Error updating hazard in DB:', err);
-    }
-  }
-
-  // Fallback to hazards.json
-  try {
-    const hazards = readJsonData();
-    const index = hazards.findIndex((h: any) => h.id === id);
-    if (index === -1) return res.status(404).send('Hazard not found');
-
-
-    hazards[index] = {
-      ...targetHazard,
-      type,
-      description,
-
-      imageUrl: finalImageUrl
-    };
-
-    writeLocalHazards(hazards);
-    res.json(hazards[index]);
-  } catch (err: any) {
-    console.error('Error updating hazard:', err);
-    res.status(500).send('Error saving data');
-  }
-});
-
-/**
- * 危険箇所の削除（解決済み）
- * DELETE /api/hazards/:id
- */
-app.delete('/api/hazards/:id', async (req, res) => {
-  try {
-    const idParam = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-    const id = parseInt(idParam || '0', 10);
-
-    if (isDbConnected()) {
-      const result = await pool.query(`DELETE FROM hazards WHERE id = $1`, [id]);
-      if (result.rowCount === 0) return res.status(404).send('Hazard not found');
-
-      // 同期
-      const hazards = readLocalHazards();
-      const filtered = hazards.filter(h => h.id !== id);
-      writeLocalHazards(filtered);
-
-      return res.status(200).send('Hazard resolved');
-    }
-
-    // Fallback: JSON
-    const hazards = readLocalHazards();
-    const filteredHazards = hazards.filter(h => h.id !== id);
-    writeLocalHazards(filteredHazards);
-    res.status(200).send('Hazard resolved');
-  } catch (err: any) {
-    console.error('Error deleting hazard:', err);
-    res.status(500).send('Error saving data');
-  }
-});
-
-// サーバー起動およびDB初期化
-app.listen(PORT, async () => {
-  console.log(`🚀 Server is running on http://localhost:${PORT}`);
-  await initializeDatabase(DATA_FILE);
-
-      level: level ? parseInt(level) : (hazards[index].level || 3),
-      timeOfDay: timeOfDay || hazards[index].timeOfDay || 'all',
-      imageUrl: imageUrl === 'null' ? null : imageUrl
-    };
-
-    writeJsonData(hazards);
-    res.json(hazards[index]);
-  } catch (err) {
-    res.status(500).send('Error updating hazard data');
-  }
-});
-
-// Get all feedbacks
-app.get('/api/feedback', (req, res) => {
+app.get('/api/feedback', (_req, res) => {
   if (!fs.existsSync(FEEDBACK_FILE)) {
     return res.json([]);
   }
-  fs.readFile(FEEDBACK_FILE, 'utf8', (err, data) => {
-    if (err) return res.status(500).send('Error reading feedback file');
-    try {
-      res.json(JSON.parse(data || '[]'));
-    } catch {
-      res.json([]);
-    }
-  });
+  try {
+    const data = fs.readFileSync(FEEDBACK_FILE, 'utf8');
+    res.json(JSON.parse(data || '[]'));
+  } catch {
+    res.json([]);
+  }
 });
 
-// Post a feedback
 app.post('/api/feedback', (req, res) => {
   const feedbackData = req.body;
   const newFeedback = {
@@ -974,40 +650,28 @@ app.post('/api/feedback', (req, res) => {
     ...feedbackData
   };
 
-  fs.readFile(FEEDBACK_FILE, 'utf8', (err, data) => {
-    let feedbacks = [];
-    if (!err && data) {
-      try {
-        feedbacks = JSON.parse(data);
-      } catch {
-        feedbacks = [];
-      }
+  let feedbacks: any[] = [];
+  if (fs.existsSync(FEEDBACK_FILE)) {
+    try {
+      const data = fs.readFileSync(FEEDBACK_FILE, 'utf8');
+      feedbacks = JSON.parse(data || '[]');
+    } catch {
+      feedbacks = [];
     }
-    feedbacks.push(newFeedback);
-    fs.writeFile(FEEDBACK_FILE, JSON.stringify(feedbacks, null, 2), (writeErr) => {
-      if (writeErr) return res.status(500).send('Error saving feedback');
-      res.status(201).json(newFeedback);
-    });
-  });
+  }
+
+  feedbacks.push(newFeedback);
+  fs.writeFileSync(FEEDBACK_FILE, JSON.stringify(feedbacks, null, 2), 'utf8');
+  res.status(201).json(newFeedback);
 });
 
-app.listen(PORT, () => {
-
-// Start Server & Check DB Connection
-app.listen(PORT, async () => {
-
-  console.log(`Server is running on http://localhost:${PORT}`);
-  await checkDbConnection();
-
-});
-
-
+// サーバー起動およびDB初期化
 if (process.env.NODE_ENV !== 'test') {
-  app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
+  app.listen(PORT, async () => {
+    console.log(`🚀 Server is running on http://localhost:${PORT}`);
+    await initializeDatabase(DATA_FILE);
   });
 }
 
 export { app, getImageUrl };
 export default app;
-

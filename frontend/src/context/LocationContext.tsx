@@ -273,10 +273,25 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
   );
 };
 
-export const useLocation = () => {
+export const useLocation = (): LocationContextType => {
   const context = useContext(LocationContext);
   if (!context) {
-    throw new Error("useLocation must be used within a LocationProvider");
+    return {
+      userPos: null,
+      accuracy: null,
+      heading: null,
+      isMoving: false,
+      isTracking: false,
+      locationHistory: [],
+      error: null,
+      avatar: 'boy',
+      setAvatar: () => {},
+      isSimulating: false,
+      toggleSimulation: () => {},
+      startTracking: () => {},
+      stopTracking: () => {},
+      clearHistory: () => {}
+    };
   }
   return context;
 };

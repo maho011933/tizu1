@@ -29,6 +29,7 @@
 
 .alert-marker {
   animation: marker-alert 1s infinite;
+}
 
 @keyframes pin-bounce {
   0%, 100% { transform: translateY(0); }
