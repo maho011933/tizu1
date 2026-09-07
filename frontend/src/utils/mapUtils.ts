@@ -26,15 +26,17 @@ export const getMarkerIcon = (type: string, isMine: boolean = false, level: numb
   const emoji = emojis[type] || emojis.Other;
   const borderColor = isMine ? '#F1C40F' : 'white';
 
-  // 危険度 Lv.1〜5 に応じたサイズ設定
-  // Lv.1: 24px, Lv.2: 28px, Lv.3: 34px, Lv.4: 42px, Lv.5: 50px
-  const sizes = [24, 28, 34, 42, 50];
-  const fontSizes = [12, 14, 18, 22, 26];
+  // 危険度 Lv.1〜5 に応じたサイズ設定（よりメリハリのある拡大）
+  // Lv.1: 24px, Lv.2: 30px, Lv.3: 38px, Lv.4: 48px, Lv.5: 58px
+  const sizes = [24, 30, 38, 48, 58];
+  const fontSizes = [12, 15, 20, 25, 30];
   const idx = Math.max(0, Math.min(4, (level || 3) - 1));
   const pinSize = sizes[idx];
   const fontSize = fontSizes[idx];
 
-  const alertBadge = level >= 4 ? `<div style="position: absolute; top: -14px; right: -8px; background: #E74C3C; color: white; font-size: 10px; font-weight: 900; padding: 1px 4px; border-radius: 8px; border: 1.5px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); z-index: 5;">Lv.${level}</div>` : '';
+  // 危険度Lvバッジ（Lv.4〜5は強調赤、Lv.3は橙、Lv.1〜2は灰）
+  const badgeBg = level >= 4 ? '#E74C3C' : (level === 3 ? '#F39C12' : '#7F8C8D');
+  const alertBadge = `<div style="position: absolute; top: -12px; right: -8px; background: ${badgeBg}; color: white; font-size: 10px; font-weight: 900; padding: 1px 4px; border-radius: 8px; border: 1.5px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); z-index: 5;">Lv.${level}</div>`;
 
   return L.divIcon({
     className: 'custom-icon',

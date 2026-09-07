@@ -816,6 +816,48 @@ function App() {
                   <span>Lv.3 (ふつう)</span>
                   <span>Lv.5 (とても危険！)</span>
                 </div>
+
+                {/* 📌 ピンの見た目プレビュー */}
+                <div style={{
+                  marginTop: '0.5rem',
+                  padding: '0.5rem 0.7rem',
+                  background: '#F0F4F8',
+                  borderRadius: '10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  border: '1px solid #D6E4EC'
+                }}>
+                  <span style={{ fontSize: '0.75rem', color: '#546E7A', fontWeight: 'bold' }}>
+                    ピンの大きさ見本:
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div
+                      className={formLevel === 5 ? 'alert-marker' : (formLevel === 4 ? 'pulse-marker' : '')}
+                      style={{
+                        backgroundColor: (typeColors[formType] || typeColors.Other).bg,
+                        width: `${[24, 30, 38, 48, 58][formLevel - 1]}px`,
+                        height: `${[24, 30, 38, 48, 58][formLevel - 1]}px`,
+                        borderRadius: '50%',
+                        border: '3px solid white',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: `${[12, 15, 20, 25, 30][formLevel - 1]}px`,
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      {({
+                        Traffic: '🚗', Crime: '👮', Disaster: '🌊', Lighting: '🌙',
+                        Shelter: '🏫', AED: '💓', ChildSafety: '🏠', Other: '🐾'
+                      } as Record<string, string>)[formType] || '🐾'}
+                    </div>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: formLevel >= 4 ? '#E74C3C' : '#2C3E50' }}>
+                      Lv.{formLevel} ({[24, 30, 38, 48, 58][formLevel - 1]}px)
+                    </span>
+                  </div>
+                </div>
               </div>
 
               {/* 写真選択 */}
@@ -1041,31 +1083,38 @@ function App() {
             <MapUpdater center={mapCenter} zoom={zoomLevel} />
             <MapClickHandler onMapClick={handleMapClick} />
 
-            {/* 🔥 ヒートマップレイヤー (グラデーションサーマルサークル) */}
+            {/* 🔥 ヒートマップレイヤー (危険度に応じた多重サーマルグラデーションサークル) */}
             {showHeatmap && filteredHazards.map(h => {
               const level = h.level || h.dangerLevel || 3;
               if (level >= 5) {
                 return (
                   <React.Fragment key={`heat-${h.id}`}>
-                    <Circle center={[h.lat, h.lng]} radius={85} pathOptions={{ stroke: false, fillColor: '#FF0000', fillOpacity: 0.15 }} />
-                    <Circle center={[h.lat, h.lng]} radius={48} pathOptions={{ stroke: false, fillColor: '#E74C3C', fillOpacity: 0.35 }} />
-                    <Circle center={[h.lat, h.lng]} radius={22} pathOptions={{ stroke: false, fillColor: '#C0392B', fillOpacity: 0.6 }} />
+                    <Circle center={[h.lat, h.lng]} radius={100} pathOptions={{ stroke: false, fillColor: '#FF1744', fillOpacity: 0.12 }} />
+                    <Circle center={[h.lat, h.lng]} radius={60} pathOptions={{ stroke: false, fillColor: '#FF5252', fillOpacity: 0.28 }} />
+                    <Circle center={[h.lat, h.lng]} radius={30} pathOptions={{ stroke: false, fillColor: '#D50000', fillOpacity: 0.55 }} />
                   </React.Fragment>
                 );
               } else if (level >= 4) {
                 return (
                   <React.Fragment key={`heat-${h.id}`}>
-                    <Circle center={[h.lat, h.lng]} radius={60} pathOptions={{ stroke: false, fillColor: '#FF5722', fillOpacity: 0.18 }} />
-                    <Circle center={[h.lat, h.lng]} radius={32} pathOptions={{ stroke: false, fillColor: '#E67E22', fillOpacity: 0.4 }} />
+                    <Circle center={[h.lat, h.lng]} radius={75} pathOptions={{ stroke: false, fillColor: '#FF9100', fillOpacity: 0.15 }} />
+                    <Circle center={[h.lat, h.lng]} radius={40} pathOptions={{ stroke: false, fillColor: '#FF5722', fillOpacity: 0.35 }} />
                   </React.Fragment>
                 );
               } else if (level === 3) {
                 return (
-                  <Circle key={`heat-${h.id}`} center={[h.lat, h.lng]} radius={40} pathOptions={{ stroke: false, fillColor: '#F1C40F', fillOpacity: 0.25 }} />
+                  <React.Fragment key={`heat-${h.id}`}>
+                    <Circle center={[h.lat, h.lng]} radius={50} pathOptions={{ stroke: false, fillColor: '#FFEA00', fillOpacity: 0.18 }} />
+                    <Circle center={[h.lat, h.lng]} radius={25} pathOptions={{ stroke: false, fillColor: '#FFC107', fillOpacity: 0.30 }} />
+                  </React.Fragment>
+                );
+              } else if (level === 2) {
+                return (
+                  <Circle key={`heat-${h.id}`} center={[h.lat, h.lng]} radius={35} pathOptions={{ stroke: false, fillColor: '#81C784', fillOpacity: 0.18 }} />
                 );
               } else {
                 return (
-                  <Circle key={`heat-${h.id}`} center={[h.lat, h.lng]} radius={25} pathOptions={{ stroke: false, fillColor: '#F39C12', fillOpacity: 0.15 }} />
+                  <Circle key={`heat-${h.id}`} center={[h.lat, h.lng]} radius={25} pathOptions={{ stroke: false, fillColor: '#4CAF50', fillOpacity: 0.14 }} />
                 );
               }
             })}
@@ -1211,42 +1260,76 @@ function App() {
             })}
           </MapContainer>
 
-          {/* 🔥 ヒートマップ凡例 (Legend) */}
-          {showHeatmap && (
-            <div style={{
-              position: 'absolute',
-              bottom: '20px',
-              left: '20px',
-              background: 'rgba(255, 255, 255, 0.92)',
-              backdropFilter: 'blur(4px)',
-              padding: '0.6rem 0.9rem',
-              borderRadius: '12px',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-              zIndex: 1000,
-              fontSize: '0.8rem',
-              color: '#2C3E50',
-              border: '1px solid #FFE082'
-            }}>
-              <div style={{ fontWeight: 900, marginBottom: '0.3rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                <span>🔥</span>
-                <span>あぶないエリア (ヒートマップ)</span>
+          {/* 🗺️ マップのみかた凡例 (Legend: ヒートマップ & ピンサイズ) */}
+          <div style={{
+            position: 'absolute',
+            bottom: '20px',
+            left: '20px',
+            background: 'rgba(255, 255, 255, 0.94)',
+            backdropFilter: 'blur(6px)',
+            padding: '0.7rem 1rem',
+            borderRadius: '16px',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+            zIndex: 1000,
+            fontSize: '0.8rem',
+            color: '#2C3E50',
+            border: '2px solid #FFE082',
+            maxWidth: '240px'
+          }}>
+            <div style={{ fontWeight: 900, marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.3rem', color: '#D35400' }}>
+              <span>🗺️</span>
+              <span>マップのみかた</span>
+            </div>
+
+            {/* 📌 ピンの大きさガイド */}
+            <div style={{ marginBottom: showHeatmap ? '0.5rem' : '0', borderBottom: showHeatmap ? '1px dashed #DDD' : 'none', paddingBottom: showHeatmap ? '0.4rem' : '0' }}>
+              <div style={{ fontSize: '0.72rem', fontWeight: 'bold', color: '#555', marginBottom: '0.2rem' }}>
+                📌 危険度とピンの大きさ:
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', fontSize: '0.75rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#E74C3C', display: 'inline-block' }}></span>
-                  <span>たいへん危険 (Lv.4〜5)</span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.2rem', marginTop: '0.3rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                  <div style={{ width: '16px', height: '16px', borderRadius: '50%', background: '#7F8C8D', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '8px', fontWeight: 'bold' }}>1</div>
+                  <span style={{ fontSize: '0.65rem', color: '#666' }}>Lv.1(小)</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#F1C40F', display: 'inline-block' }}></span>
-                  <span>ちゅうい (Lv.3)</span>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                  <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#F39C12', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '9px', fontWeight: 'bold' }}>3</div>
+                  <span style={{ fontSize: '0.65rem', color: '#666' }}>Lv.3(中)</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#F39C12', display: 'inline-block', opacity: 0.6 }}></span>
-                  <span>すこし注意 (Lv.1〜2)</span>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                  <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#E74C3C', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '10px', fontWeight: 'bold', border: '2px solid #C0392B' }}>5</div>
+                  <span style={{ fontSize: '0.65rem', color: '#E74C3C', fontWeight: 'bold' }}>Lv.5(特大)</span>
                 </div>
               </div>
             </div>
-          )}
+
+            {/* 🔥 ヒートマップ凡例 (表示中のみ) */}
+            {showHeatmap && (
+              <div style={{ fontSize: '0.72rem' }}>
+                <div style={{ fontWeight: 'bold', color: '#C0392B', marginBottom: '0.2rem', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                  <span>🔥</span>
+                  <span>ヒートマップ熱量:</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#D50000', display: 'inline-block' }}></span>
+                    <span style={{ color: '#D50000', fontWeight: 'bold' }}>超危険 (Lv.5 / 赤)</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#FF9100', display: 'inline-block' }}></span>
+                    <span style={{ color: '#E65100' }}>危険 (Lv.4 / 橙)</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#FFC107', display: 'inline-block' }}></span>
+                    <span style={{ color: '#F57F17' }}>注意 (Lv.3 / 黄)</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#81C784', display: 'inline-block' }}></span>
+                    <span style={{ color: '#2E7D32' }}>軽度 (Lv.1〜2 / 緑)</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* クイック操作ボタン */}
           <div style={{ position: 'absolute', bottom: '20px', right: '20px', display: 'flex', flexDirection: 'column', gap: '10px', zIndex: 1000 }}>
