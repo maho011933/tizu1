@@ -68,6 +68,7 @@ export const typeLabels: Record<string, string> = {
   Lighting: 'くらみち・でんき 🌙',
   Shelter: 'ひなんじょ 🏫',
   AED: 'AED・きゅうきゅう 💓',
+  ChildSafety: 'こどもあんしんスポット 🏠',
   Other: 'そのほか 🐾'
 };
 
@@ -78,5 +79,6 @@ export const typeColors: Record<string, { bg: string; text: string; shadow: stri
   Lighting: { bg: '#F1C40F', text: '#2C3E50', shadow: '#F39C12' },
   Shelter: { bg: '#2ECC71', text: 'white', shadow: '#27AE60' },
   AED: { bg: '#E67E22', text: 'white', shadow: '#D35400' },
+  ChildSafety: { bg: '#1ABC9C', text: 'white', shadow: '#16A085' },
   Other: { bg: '#9B59B6', text: 'white', shadow: '#8E44AD' }
 };

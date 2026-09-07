@@ -13,7 +13,7 @@ import type { HazardData } from './db.js';
 import { buildChildFriendlyAlert } from './alerts.js';
 import type { AlertNotification, LocationTriggerResponse } from './alerts.js';
 import { generateHazardStatistics } from './stats.js';
-import { uploadImage } from './services/storageService.js';
+import { uploadImage, deleteImage } from './services/storageService.js';
 import aiRoutes from './routes/aiRoutes.js';
 
 dotenv.config();
@@ -209,10 +209,30 @@ app.put('/api/hazards/:id', upload.single('image'), async (req, res) => {
     const id = parseInt(req.params.id as string, 10);
     const { type, description, level, timeOfDay, dangerLevel } = req.body;
 
+    // 更新前の古い画像URLを取得（古い画像クリーンアップ用）
+    let oldImageUrl: string | null = null;
+    if (isDbConnected()) {
+      const oldRow = await pool.query(`SELECT image_url AS "imageUrl" FROM hazards WHERE id = $1`, [id]);
+      if (oldRow.rowCount && oldRow.rowCount > 0) {
+        oldImageUrl = oldRow.rows[0].imageUrl;
+      }
+    } else {
+      const hazards = readLocalHazards();
+      const existing = hazards.find((h: any) => h.id === id);
+      if (existing) {
+        oldImageUrl = existing.imageUrl || null;
+      }
+    }
+
     let imageUrl: string | null = req.body.imageUrl === 'null' ? null : req.body.imageUrl;
     if (req.file) {
       const uploadResult = await uploadImage(req.file, PORT);
       imageUrl = uploadResult.url;
+    }
+
+    // 新しい画像に更新または画像削除された場合、古い画像ファイルをクリーンアップ
+    if (oldImageUrl && (req.file || req.body.imageUrl === 'null')) {
+      await deleteImage(oldImageUrl);
     }
 
     const hazardLevel = level ? parseInt(level) : (dangerLevel ? parseInt(dangerLevel) : 3);
@@ -275,10 +295,20 @@ app.put('/api/hazards/:id', upload.single('image'), async (req, res) => {
 app.delete('/api/hazards/:id', async (req, res) => {
   try {
     const id = parseInt(req.params.id as string, 10);
+    let targetImageUrl: string | null = null;
 
     if (isDbConnected()) {
+      const row = await pool.query(`SELECT image_url AS "imageUrl" FROM hazards WHERE id = $1`, [id]);
+      if (row.rowCount && row.rowCount > 0) {
+        targetImageUrl = row.rows[0].imageUrl;
+      }
+
       const result = await pool.query(`DELETE FROM hazards WHERE id = $1`, [id]);
       if (result.rowCount === 0) return res.status(404).send('Hazard not found');
+
+      if (targetImageUrl) {
+        await deleteImage(targetImageUrl);
+      }
 
       const hazards = readLocalHazards();
       const filtered = hazards.filter((h: any) => h.id !== id);
@@ -289,8 +319,17 @@ app.delete('/api/hazards/:id', async (req, res) => {
 
     // Fallback: JSON
     const hazards = readLocalHazards();
+    const target = hazards.find((h: any) => h.id === id);
+    if (!target) return res.status(404).send('Hazard not found');
+    targetImageUrl = target.imageUrl || null;
+
     const filteredHazards = hazards.filter((h: any) => h.id !== id);
     writeLocalHazards(filteredHazards);
+
+    if (targetImageUrl) {
+      await deleteImage(targetImageUrl);
+    }
+
     res.status(200).send('Hazard resolved');
   } catch (err: any) {
     console.error('Error deleting hazard:', err);

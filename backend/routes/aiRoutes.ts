@@ -48,7 +48,10 @@ router.post('/advice', async (req: Request, res: Response) => {
 
   try {
     const result = await generateSafetyAdvice(description, type);
-    res.json(result);
+    res.json({
+      ...result,
+      advice: result.forKids // フロントエンドとの後方互換性
+    });
   } catch (error) {
     res.status(500).json({ error: 'AIアドバイスの生成処理に失敗しました。' });
   }
@@ -60,14 +63,39 @@ router.post('/advice', async (req: Request, res: Response) => {
  * Form-Data: text (string), image (file)
  */
 router.post('/assist', upload.single('image'), async (req: Request, res: Response) => {
-  const { text } = req.body;
+  const text = req.body.text || req.body.description || '';
   const imagePath = req.file ? req.file.path : undefined;
 
   try {
-    const result = await assistHazardInput(text || '', imagePath);
-    res.json(result);
+    const result = await assistHazardInput(text, imagePath);
+    res.json({
+      ...result,
+      type: result.suggestedType // フロントエンドの後方互換性
+    });
   } catch (error) {
     res.status(500).json({ error: '入力アシスト・AI解析処理に失敗しました。' });
+  }
+});
+
+/**
+ * POST /api/ai/analyze-hazard
+ * 投稿フォーム用の簡易自動判定エンドポイント
+ * Body: { description: string } または { text: string }
+ */
+router.post('/analyze-hazard', async (req: Request, res: Response) => {
+  const text = req.body.description || req.body.text || '';
+  if (!text.trim()) {
+    return res.status(400).json({ error: 'description または text を指定してください。' });
+  }
+
+  try {
+    const result = await assistHazardInput(text);
+    res.json({
+      ...result,
+      type: result.suggestedType // フロントエンドとの整合性
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'AI自動判定処理に失敗しました。' });
   }
 });
 

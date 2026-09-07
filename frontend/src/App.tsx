@@ -129,11 +129,14 @@ function App() {
       if (res.ok) {
         const data = await res.json();
         setHazards(data);
+      } else {
+        showToast('⚠️ データの読み込みにしっぱいしたよ');
       }
     } catch (err) {
       console.error('Failed to fetch hazards:', err);
+      showToast('⚠️ つうしんに しっぱいしたよ。サーバーの ようすを かくにんしてね');
     }
-  }, []);
+  }, [showToast]);
 
   useEffect(() => {
     fetchHazards();
@@ -242,7 +245,8 @@ function App() {
       });
       if (res.ok) {
         const data = await res.json();
-        if (data.type) setFormType(data.type);
+        const suggestedType = data.type || data.suggestedType;
+        if (suggestedType) setFormType(suggestedType);
         if (data.dangerLevel) setFormLevel(data.dangerLevel);
         showToast('✨ AIがカテゴリと危険度を自動判定したよ！');
       } else {
@@ -285,6 +289,8 @@ function App() {
           showToast('✨ 危険情報を更新したよ！');
           handleCancelEdit();
           fetchHazards();
+        } else {
+          showToast('⚠️ 危険情報の更新にしっぱいしたよ');
         }
       } else {
         // 新規登録
@@ -300,11 +306,13 @@ function App() {
           showToast('🎉 新しい危険をみんなに知らせたよ！');
           handleCancelEdit();
           fetchHazards();
+        } else {
+          showToast('⚠️ 危険情報の登録にしっぱいしたよ');
         }
       }
     } catch (err) {
       console.error('Error saving hazard:', err);
-      showToast('⚠️ 保存に失敗しました');
+      showToast('⚠️ つうしんに しっぱいしたよ。保存できませんでした');
     }
   };
 
@@ -316,9 +324,11 @@ function App() {
       if (res.ok) {
         showToast('👏 危険がかいけつしたよ！');
         fetchHazards();
+      } else {
+        showToast('⚠️ 削除にしっぱいしたよ');
       }
     } catch {
-      showToast('⚠️ 削除に失敗しました');
+      showToast('⚠️ つうしんに しっぱいしたよ。削除できませんでした');
     }
   };
 
@@ -345,9 +355,11 @@ function App() {
         }));
         setCommentInputs(prev => ({ ...prev, [hazardId]: '' }));
         showToast('💬 コメントを投稿したよ！');
+      } else {
+        showToast('⚠️ コメント投稿にしっぱいしたよ');
       }
     } catch {
-      showToast('⚠️ コメント投稿に失敗しました');
+      showToast('⚠️ つうしんに しっぱいしたよ。コメントを送信できませんでした');
     }
   };
 
@@ -370,9 +382,10 @@ function App() {
       });
       if (res.ok) {
         const data = await res.json();
+        const adviceText = data.forKids || data.advice || '気をつけて通りましょう。周りをよく見てね！';
         setAiAdviceMap(prev => ({
           ...prev,
-          [h.id]: { advice: data.advice, loading: false }
+          [h.id]: { advice: adviceText, loading: false }
         }));
       } else {
         setAiAdviceMap(prev => ({
@@ -745,6 +758,7 @@ function App() {
                   <option value="Lighting">くらみち・でんき 🌙</option>
                   <option value="Shelter">ひなんじょ 🏫</option>
                   <option value="AED">AED・きゅうきゅう 💓</option>
+                  <option value="ChildSafety">こどもあんしんスポット 🏠</option>
                   <option value="Other">そのほか 🐾</option>
                 </select>
               </div>

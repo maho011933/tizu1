@@ -29,6 +29,11 @@ describe('Marker Icon & Color System (ピン表示・色設定テスト)', () =>
       expect(icon.options.html).toContain('background-color: #9B59B6');
     });
 
+    it('ChildSafety (こども安心スポット) のピンアイコンが青緑色 (#1ABC9C) で生成されること', () => {
+      const icon = getMarkerIcon('ChildSafety', false);
+      expect(icon.options.html).toContain('background-color: #1ABC9C');
+    });
+
     it('未知のカテゴリ名が渡された場合は Other (紫 #9B59B6) にフォールバックすること', () => {
       const icon = getMarkerIcon('UnknownCategory', false);
       expect(icon.options.html).toContain('background-color: #9B59B6');
@@ -79,6 +84,7 @@ describe('Marker Icon & Color System (ピン表示・色設定テスト)', () =>
       expect(typeLabels.Crime).toContain('ぼうはん');
       expect(typeLabels.Disaster).toContain('じしん');
       expect(typeLabels.Lighting).toContain('くらみち');
+      expect(typeLabels.ChildSafety).toContain('こどもあんしん');
       expect(typeLabels.Other).toContain('そのほか');
     });
   });

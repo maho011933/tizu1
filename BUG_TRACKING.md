@@ -9,10 +9,10 @@
 | 深刻度 | 検出総数 | 修正・テスト済 (🟢) | 対応中 (🟡) | 未対応 (🔴) |
 | :--- | :---: | :---: | :---: | :---: |
 | **Critical (緊急・重大)** | 1 | 1 | 0 | 0 |
-| **High (高・機能不全)** | 2 | 2 | 0 | 0 |
-| **Medium (中・UX/エッジケース)** | 3 | 2 | 1 | 0 |
-| **Low (低・軽微な改善)** | 1 | 0 | 1 | 0 |
-| **合計** | **7** | **5** | **2** | **0** |
+| **High (高・機能不全)** | 4 | 4 | 0 | 0 |
+| **Medium (中・UX/エッジケース)** | 4 | 4 | 0 | 0 |
+| **Low (低・軽微な改善)** | 2 | 2 | 0 | 0 |
+| **合計** | **11** | **11** | **0** | **0** |
 
 ---
 
@@ -27,15 +27,17 @@
 | **BUG-003** | [App.tsx](file:///C:/Users/denshi15/Desktop/tizu1/frontend/src/App.tsx) | 未知のカテゴリ名がバックエンドから返された場合、アイコンやスタイルが崩れるリスク | Medium | `typeColors[type] || typeColors.Other` および `colors[type] || colors.Other` のフォールバック定義を徹底。 | `frontend/src/__tests__/markerIcon.test.ts` |
 | **BUG-004** | [App.tsx](file:///C:/Users/denshi15/Desktop/tizu1/frontend/src/App.tsx) | 他人の投稿した危険箇所でも「なおす📝」ボタンが見えてしまい誤解を招く可能性 | High | `myHazardIds`（localStorage）に含まれない投稿には「なおす📝」ボタンを非表示化、権限注記を表示。 | `frontend/src/__tests__/HazardFormAndList.test.tsx` |
 | **BUG-005** | [backend/server.ts](file:///C:/Users/denshi15/Desktop/tizu1/backend/server.ts) | 存在しないハザードIDに対するコメント投稿や更新時に 500 エラーまたはデータ不整合が発生する | Medium | `findIndex === -1` 時の 404 エラーハンドリングおよび空コメントの 400 バリデーションを追加。 | `backend/__tests__/api.test.ts` |
+| **BUG-006** | [App.tsx](file:///C:/Users/denshi15/Desktop/tizu1/frontend/src/App.tsx) | ネットワーク切断時やサーバーダウン時に `fetch` が失敗した際、ユーザーにエラーが伝わらない | Medium | `fetchHazards` や各APIコールに親切なトースト通知（「つうしんに しっぱいしたよ」等）を追加。 | `frontend/src/__tests__/HazardFormAndList.test.tsx` |
+| **BUG-007** | [backend/server.ts](file:///C:/Users/denshi15/Desktop/tizu1/backend/server.ts) | 危険箇所を更新・削除した際に、古い画像ファイルが `backend/uploads/` に残留し続ける | Low | `storageService.ts` の `deleteImage` を `PUT`（画像更新時）および `DELETE`（ハザード解決時）に統合。 | `backend/__tests__/api.test.ts` |
+| **BUG-008** | [App.tsx](file:///C:/Users/denshi15/Desktop/tizu1/frontend/src/App.tsx) / [aiRoutes.ts](file:///C:/Users/denshi15/Desktop/tizu1/backend/routes/aiRoutes.ts) | AIあんぜんアドバイス取得時、レスポンスのキー名不一致（`advice` ↔ `forKids`）で画面に表示されない | High | バックエンドの `/api/ai/advice` で `advice` プロパティを返却し、フロントでも `data.forKids || data.advice` を参照可能に修正。 | `backend/__tests__/api.test.ts` |
+| **BUG-009** | [App.tsx](file:///C:/Users/denshi15/Desktop/tizu1/frontend/src/App.tsx) / [aiRoutes.ts](file:///C:/Users/denshi15/Desktop/tizu1/backend/routes/aiRoutes.ts) | 投稿フォームの「✨ AI判定」ボタン押下時に 404 エラーとなり自動判定が動作しない | High | バックエンドに `POST /api/ai/analyze-hazard` を実装し、パラメータ（`description`/`text`）と戻り値（`type`/`suggestedType`）を双方向サポート。 | `backend/__tests__/api.test.ts` |
+| **BUG-010** | [mapUtils.ts](file:///C:/Users/denshi15/Desktop/tizu1/frontend/src/utils/mapUtils.ts) / [App.tsx](file:///C:/Users/denshi15/Desktop/tizu1/frontend/src/App.tsx) | 「こども安心スポット (ChildSafety)」のカテゴリ定義が `typeLabels` / `typeColors` になく配色不整合 | Low | `mapUtils.ts` に青緑色 (`#1ABC9C`) 定義とひらがなラベルを追加し、投稿フォームにも選択肢を追加。 | `frontend/src/__tests__/markerIcon.test.ts` |
 
 ---
 
 ### 🟡 改善・対応中 (In Progress)
 
-| ID | 対象コンポーネント | 現象 / 改善要望 | 深刻度 | 予定されている対応方針 | 担当 |
-| :--- | :--- | :--- | :---: | :--- | :---: |
-| **BUG-006** | [App.tsx](file:///C:/Users/denshi15/Desktop/tizu1/frontend/src/App.tsx) | ネットワーク切断時やサーバーダウン時に `fetch` が失敗した際、ユーザーにエラーが伝わらない | Medium | トースト通知（「つうしんに しっぱいしたよ」等のひらがなアラート）の追加 | Aさん / Bさん |
-| **BUG-007** | [backend/server.ts](file:///C:/Users/denshi15/Desktop/tizu1/backend/server.ts) | 危険箇所を更新・削除した際に、古い画像ファイルが `backend/uploads/` に残留し続ける | Low | 画像更新/削除時の `fs.unlink` クリーンアップ処理、またはクラウドストレージ移行時に自動ライフサイクル管理 | Cさん |
+*現在対応中の保留バグはありません（全件解決・テスト合格）。*
 
 ---
 
@@ -45,7 +47,7 @@
 
 | テストファイル | テスト項目 | 検証内容 | 判定 |
 | :--- | :--- | :--- | :---: |
-| [`markerIcon.test.ts`](file:///C:/Users/denshi15/Desktop/tizu1/frontend/src/__tests__/markerIcon.test.ts) | カテゴリ別ピン色分け | Traffic(赤), Crime(水色), Disaster(灰色), Lighting(黄), Other(紫) の背景色 | 🟢 PASS |
+| [`markerIcon.test.ts`](file:///C:/Users/denshi15/Desktop/tizu1/frontend/src/__tests__/markerIcon.test.ts) | カテゴリ別ピン色分け | Traffic(赤), Crime(水色), Disaster(灰色), Lighting(黄), ChildSafety(青緑), Other(紫) の背景色 | 🟢 PASS |
 | | 未知カテゴリフォールバック | 想定外の文字列でも Other(紫) に安全にフォールバック | 🟢 PASS |
 | | 「じぶん」バッジと金枠 | `isMine=true` で金色枠線(`#F1C40F`)と「じぶん」バッジ描画 | 🟢 PASS |
 | | 自宅ピン (`getHomeIcon`) | 🏠 アイコンと専用スタイルの生成 | 🟢 PASS |
@@ -72,6 +74,9 @@
 | | `PUT /api/hazards/:id` | カテゴリ・説明文の正常更新 (200) | 🟢 PASS |
 | | `PUT /api/hazards/:id` | 存在しないID更新時の 404 エラー | 🟢 PASS |
 | | `DELETE /api/hazards/:id` | ハザードの解決（削除）とデータ整合性 (200) | 🟢 PASS |
+| | `DELETE /api/hazards/:id` | 削除時に紐づく画像ファイルの自動クリーンアップ (BUG-007) | 🟢 PASS |
+| | `POST /api/ai/analyze-hazard` | 投稿文からのAIカテゴリ・危険度自動判定 (BUG-009) | 🟢 PASS |
+| | `POST /api/ai/advice` | 子供向けAI安全アドバイスの取得とプロパティ整合性 (BUG-008) | 🟢 PASS |
 
 ---
 

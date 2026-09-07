@@ -164,5 +164,56 @@ describe('Backend Hazard API Endpoints (バックエンドAPIテスト)', () => 
       expect(fileData.length).toBe(1);
       expect(fileData.find((h: any) => h.id === 1)).toBeUndefined();
     });
+
+    it('画像が設定されたハザードを削除した際、画像ファイルがクリーンアップされること (BUG-007)', async () => {
+      const uploadsDir = path.join(__dirname, '..', 'uploads');
+      if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+      const testImageName = `test-delete-${Date.now()}.jpg`;
+      const testImagePath = path.join(uploadsDir, testImageName);
+      fs.writeFileSync(testImagePath, 'dummy content');
+
+      // データファイルに画像付きハザードを追加
+      const hazards = JSON.parse(fs.readFileSync(TEST_DATA_FILE, 'utf8'));
+      hazards.push({
+        id: 99,
+        lat: 35.69,
+        lng: 139.69,
+        type: 'Traffic',
+        description: '画像付きテストハザード',
+        imageUrl: `http://localhost:3001/uploads/${testImageName}`,
+        comments: []
+      });
+      fs.writeFileSync(TEST_DATA_FILE, JSON.stringify(hazards, null, 2), 'utf8');
+
+      const res = await request(app).delete('/api/hazards/99');
+      expect(res.status).toBe(200);
+      expect(fs.existsSync(testImagePath)).toBe(false);
+    });
+  });
+
+  describe('AI Endpoints (/api/ai)', () => {
+    it('POST /api/ai/analyze-hazard でカテゴリと危険度が正しく判定されること', async () => {
+      const res = await request(app)
+        .post('/api/ai/analyze-hazard')
+        .send({ description: '交差点で車が猛スピードで走っていて危ない' });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('type');
+      expect(res.body.type).toBe('Traffic');
+      expect(res.body).toHaveProperty('dangerLevel');
+      expect(typeof res.body.dangerLevel).toBe('number');
+    });
+
+    it('POST /api/ai/advice で子供向けアドバイスと advice プロパティが返ること', async () => {
+      const res = await request(app)
+        .post('/api/ai/advice')
+        .send({ description: '街灯が切れていて夜道が真っ暗', type: 'Lighting' });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('advice');
+      expect(res.body).toHaveProperty('forKids');
+      expect(typeof res.body.advice).toBe('string');
+      expect(res.body.advice.length).toBeGreaterThan(0);
+    });
   });
 });
