@@ -35,14 +35,14 @@ jobs:
           npm run build
 
       - name: Trigger Render Deployment (Webhook)
-        if: ${{ secrets.RENDER_DEPLOY_HOOK_URL != '' }}
+        if: secrets.RENDER_DEPLOY_HOOK_URL != ''
         run: |
           echo "Triggering cloud deployment on Render..."
           curl -s -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
           echo "Deployment triggered successfully."
 
       - name: Trigger Generic Cloud Deploy Webhook
-        if: ${{ secrets.GENERIC_DEPLOY_HOOK_URL != '' }}
+        if: secrets.GENERIC_DEPLOY_HOOK_URL != ''
         run: |
           echo "Triggering custom cloud deployment..."
           curl -s -X POST "${{ secrets.GENERIC_DEPLOY_HOOK_URL }}"
