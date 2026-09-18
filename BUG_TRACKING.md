@@ -9,10 +9,10 @@
 | 深刻度 | 検出総数 | 修正・テスト済 (🟢) | 対応中 (🟡) | 未対応 (🔴) |
 | :--- | :---: | :---: | :---: | :---: |
 | **Critical (緊急・重大)** | 1 | 1 | 0 | 0 |
-| **High (高・機能不全)** | 4 | 4 | 0 | 0 |
-| **Medium (中・UX/エッジケース)** | 4 | 4 | 0 | 0 |
+| **High (高・機能不全)** | 5 | 5 | 0 | 0 |
+| **Medium (中・UX/エッジケース)** | 5 | 5 | 0 | 0 |
 | **Low (低・軽微な改善)** | 2 | 2 | 0 | 0 |
-| **合計** | **11** | **11** | **0** | **0** |
+| **合計** | **13** | **13** | **0** | **0** |
 
 ---
 
@@ -32,6 +32,8 @@
 | **BUG-008** | [App.tsx](file:///C:/Users/denshi15/Desktop/tizu1/frontend/src/App.tsx) / [aiRoutes.ts](file:///C:/Users/denshi15/Desktop/tizu1/backend/routes/aiRoutes.ts) | AIあんぜんアドバイス取得時、レスポンスのキー名不一致（`advice` ↔ `forKids`）で画面に表示されない | High | バックエンドの `/api/ai/advice` で `advice` プロパティを返却し、フロントでも `data.forKids || data.advice` を参照可能に修正。 | `backend/__tests__/api.test.ts` |
 | **BUG-009** | [App.tsx](file:///C:/Users/denshi15/Desktop/tizu1/frontend/src/App.tsx) / [aiRoutes.ts](file:///C:/Users/denshi15/Desktop/tizu1/backend/routes/aiRoutes.ts) | 投稿フォームの「✨ AI判定」ボタン押下時に 404 エラーとなり自動判定が動作しない | High | バックエンドに `POST /api/ai/analyze-hazard` を実装し、パラメータ（`description`/`text`）と戻り値（`type`/`suggestedType`）を双方向サポート。 | `backend/__tests__/api.test.ts` |
 | **BUG-010** | [mapUtils.ts](file:///C:/Users/denshi15/Desktop/tizu1/frontend/src/utils/mapUtils.ts) / [App.tsx](file:///C:/Users/denshi15/Desktop/tizu1/frontend/src/App.tsx) | 「こども安心スポット (ChildSafety)」のカテゴリ定義が `typeLabels` / `typeColors` になく配色不整合 | Low | `mapUtils.ts` に青緑色 (`#1ABC9C`) 定義とひらがなラベルを追加し、投稿フォームにも選択肢を追加。 | `frontend/src/__tests__/markerIcon.test.ts` |
+| **BUG-011** | [.github/workflows/ci.yml](file:///C:/Users/denshi15/Desktop/tizu1/.github/workflows/ci.yml) / [cd.yml](file:///C:/Users/denshi15/Desktop/tizu1/.github/workflows/cd.yml) | GitHub Actions CIでNode.js 20が指定されており、`jsdom 30` (要件Node >=22) が初期化できずフロントエンドテストがクラッシュする | High | `ci.yml` および `cd.yml` の `node-version` をローカル環境と合致する `24` に更新。 | `frontend/src/__tests__/HazardFormAndList.test.tsx` |
+| **BUG-012** | [App.tsx](file:///C:/Users/denshi15/Desktop/tizu1/frontend/src/App.tsx) / [setup.ts](file:///C:/Users/denshi15/Desktop/tizu1/frontend/src/test/setup.ts) | SSE購読で `EventSource` 未定義チェックがなくJSDOM環境で例外発生、およびブラウザAPIモックの不足 | Medium | `typeof EventSource === 'undefined'` ガードを追加し、`setup.ts` に `EventSource`, `scrollTo`, `matchMedia` のモックを定義。 | `frontend/src/__tests__/HazardFormAndList.test.tsx` |
 
 ---
 
