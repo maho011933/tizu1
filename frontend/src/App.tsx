@@ -144,6 +144,9 @@ function App() {
 
   // SSE 接近通知の購読
   useEffect(() => {
+    if (typeof window === 'undefined' || typeof EventSource === 'undefined') {
+      return;
+    }
     let eventSource: EventSource | null = null;
     try {
       eventSource = new EventSource('/api/alerts/stream');
