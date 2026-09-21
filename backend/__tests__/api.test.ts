@@ -103,7 +103,7 @@ describe('Backend Hazard API Endpoints (バックエンドAPIテスト)', () => 
 
       // データファイル内のコメントが増えていることを確認
       const fileData = JSON.parse(fs.readFileSync(TEST_DATA_FILE, 'utf8'));
-      const target = fileData.find((h: any) => h.id === 1);
+      const target = fileData.find((h: { id: number; comments: { id: number; text: string; createdAt: string }[] }) => h.id === 1);
       expect(target.comments.length).toBe(2);
     });
 
