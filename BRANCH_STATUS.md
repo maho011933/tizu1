@@ -20,7 +20,7 @@ pie title プロジェクト統合 & 品質検証
 - **バックエンドテスト:** **11 / 11 件 PASS (100%)**
 - **フロントエンドテスト:** **20 / 20 件 PASS (100%)**
 - **TypeScript型チェック & 本番ビルド:** **エラー 0 件 (成功)**
-- **.gitignore / README.md / docker-compose.yml CIチェック検証:** **型チェック・リント・テスト・ビルド 全工程ローカル合格確認済み (🟢)**
+- **.gitignore / README.md / docker-compose.yml / api.test.ts CIチェック検証:** **型チェック・リント・テスト・ビルド 全工程ローカル合格確認済み (🟢)**
 
 ---
 
