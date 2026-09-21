@@ -32,6 +32,7 @@ GitHubのプルリクエスト一覧で表示される以下のCI失敗につい
 | :---: | :--- | :--- | :--- |
 | **PR #8**<br>(`kokona` / Fさん) | **`Backend CI (Type Check)`**<br>(pull_request) | 当時のブランチマージ時にスクリプト・型定義の不整合が生じており、`npm run type-check` (`tsc --noEmit`) で型エラーが発生したため。 | 🟢 **完全解消**<br>`main` への統合コミットにて型定義をすべて修正済み。`tsc --noEmit` はエラー 0件で 100% 合格します。 |
 | **PR #9**<br>(`nonntann` / Bさん) | **`Frontend CI (Lint, Test & Build)`**<br>(pull_request) | ブランチマージ時の手動解決で `frontend/package.json` に記述重複が混入し、CIの `npm ci`（依存関係インストール）でエラーとなったため。 | 🟢 **完全解消**<br>`package.json` / `package-lock.json` の整合性を修復完了。Node.js 24化とJSDOMモック整備により、Lint・テスト(20件)・ビルドともに 100% 合格します。 |
+| **.gitignore**<br>(ファイル履歴) | **`Backend CI` / `Frontend CI`**<br>(pull_request) | 過去のコミット `204b13f` 以降更新がなかったため当時の失敗ログ（❌）が表示されていた問題。 | 🟢 **完全解消**<br>重複記述のクリーンアップ完了。最新の型チェック・リント・テスト(全31件)・ビルド全て 100% 合格を確認済み。 |
 
 ※ 過去のプルリクエスト履歴上には当時の実行ログ（❌）が残っていますが、**最新の `main` ブランチではすべての原因が恒久対処されており、CI・全テストともにグリーン（合格）** となっています。
 
