@@ -9,10 +9,10 @@
 | 深刻度 | 検出総数 | 修正・テスト済 (🟢) | 対応中 (🟡) | 未対応 (🔴) |
 | :--- | :---: | :---: | :---: | :---: |
 | **Critical (緊急・重大)** | 1 | 1 | 0 | 0 |
-| **High (高・機能不全)** | 6 | 6 | 0 | 0 |
+| **High (高・機能不全)** | 7 | 7 | 0 | 0 |
 | **Medium (中・UX/エッジケース)** | 5 | 5 | 0 | 0 |
 | **Low (低・軽微な改善)** | 2 | 2 | 0 | 0 |
-| **合計** | **14** | **14** | **0** | **0** |
+| **合計** | **15** | **15** | **0** | **0** |
 
 ---
 
@@ -22,19 +22,20 @@
 
 | ID | 対象コンポーネント | 現象 / エッジケース | 深刻度 | 原因と対応内容 | テストコード |
 | :--- | :--- | :--- | :---: | :--- | :--- |
-| **BUG-001** | [App.tsx](file:///C:/Users/denshi15/Desktop/tizu1/frontend/src/App.tsx) | 投稿フォームの `<label>` に `htmlFor` がなく、フォームコントロールと紐付いていなかった（アクセシビリティ低下・テスト自動化阻害） | High | `<label htmlFor="...">` および `<select id="...">`、`<textarea id="...">` を明示的に設定。 | `frontend/src/__tests__/HazardFormAndList.test.tsx` |
-| **BUG-002** | [backend/server.ts](file:///C:/Users/denshi15/Desktop/tizu1/backend/server.ts) | テスト実行時に本番用 `hazards.json` が上書きされる、およびポート衝突によりテストが実行できない問題 | Critical | `process.env.HAZARDS_DATA_FILE` によるデータファイル切り替え、およびテスト時の `app.listen` スキップと `app` エクスポートに対応。 | `backend/__tests__/api.test.ts` |
-| **BUG-003** | [App.tsx](file:///C:/Users/denshi15/Desktop/tizu1/frontend/src/App.tsx) | 未知のカテゴリ名がバックエンドから返された場合、アイコンやスタイルが崩れるリスク | Medium | `typeColors[type] || typeColors.Other` および `colors[type] || colors.Other` のフォールバック定義を徹底。 | `frontend/src/__tests__/markerIcon.test.ts` |
-| **BUG-004** | [App.tsx](file:///C:/Users/denshi15/Desktop/tizu1/frontend/src/App.tsx) | 他人の投稿した危険箇所でも「なおす📝」ボタンが見えてしまい誤解を招く可能性 | High | `myHazardIds`（localStorage）に含まれない投稿には「なおす📝」ボタンを非表示化、権限注記を表示。 | `frontend/src/__tests__/HazardFormAndList.test.tsx` |
-| **BUG-005** | [backend/server.ts](file:///C:/Users/denshi15/Desktop/tizu1/backend/server.ts) | 存在しないハザードIDに対するコメント投稿や更新時に 500 エラーまたはデータ不整合が発生する | Medium | `findIndex === -1` 時の 404 エラーハンドリングおよび空コメントの 400 バリデーションを追加。 | `backend/__tests__/api.test.ts` |
-| **BUG-006** | [App.tsx](file:///C:/Users/denshi15/Desktop/tizu1/frontend/src/App.tsx) | ネットワーク切断時やサーバーダウン時に `fetch` が失敗した際、ユーザーにエラーが伝わらない | Medium | `fetchHazards` や各APIコールに親切なトースト通知（「つうしんに しっぱいしたよ」等）を追加。 | `frontend/src/__tests__/HazardFormAndList.test.tsx` |
-| **BUG-007** | [backend/server.ts](file:///C:/Users/denshi15/Desktop/tizu1/backend/server.ts) | 危険箇所を更新・削除した際に、古い画像ファイルが `backend/uploads/` に残留し続ける | Low | `storageService.ts` の `deleteImage` を `PUT`（画像更新時）および `DELETE`（ハザード解決時）に統合。 | `backend/__tests__/api.test.ts` |
-| **BUG-008** | [App.tsx](file:///C:/Users/denshi15/Desktop/tizu1/frontend/src/App.tsx) / [aiRoutes.ts](file:///C:/Users/denshi15/Desktop/tizu1/backend/routes/aiRoutes.ts) | AIあんぜんアドバイス取得時、レスポンスのキー名不一致（`advice` ↔ `forKids`）で画面に表示されない | High | バックエンドの `/api/ai/advice` で `advice` プロパティを返却し、フロントでも `data.forKids || data.advice` を参照可能に修正。 | `backend/__tests__/api.test.ts` |
-| **BUG-009** | [App.tsx](file:///C:/Users/denshi15/Desktop/tizu1/frontend/src/App.tsx) / [aiRoutes.ts](file:///C:/Users/denshi15/Desktop/tizu1/backend/routes/aiRoutes.ts) | 投稿フォームの「✨ AI判定」ボタン押下時に 404 エラーとなり自動判定が動作しない | High | バックエンドに `POST /api/ai/analyze-hazard` を実装し、パラメータ（`description`/`text`）と戻り値（`type`/`suggestedType`）を双方向サポート。 | `backend/__tests__/api.test.ts` |
-| **BUG-010** | [mapUtils.ts](file:///C:/Users/denshi15/Desktop/tizu1/frontend/src/utils/mapUtils.ts) / [App.tsx](file:///C:/Users/denshi15/Desktop/tizu1/frontend/src/App.tsx) | 「こども安心スポット (ChildSafety)」のカテゴリ定義が `typeLabels` / `typeColors` になく配色不整合 | Low | `mapUtils.ts` に青緑色 (`#1ABC9C`) 定義とひらがなラベルを追加し、投稿フォームにも選択肢を追加。 | `frontend/src/__tests__/markerIcon.test.ts` |
-| **BUG-011** | [.github/workflows/ci.yml](file:///C:/Users/denshi15/Desktop/tizu1/.github/workflows/ci.yml) / [cd.yml](file:///C:/Users/denshi15/Desktop/tizu1/.github/workflows/cd.yml) | GitHub Actions CIでNode.js 20が指定されており、`jsdom 30` (要件Node >=22) が初期化できずフロントエンドテストがクラッシュする | High | `ci.yml` および `cd.yml` の `node-version` をローカル環境と合致する `24` に更新。 | `frontend/src/__tests__/HazardFormAndList.test.tsx` |
-| **BUG-012** | [App.tsx](file:///C:/Users/denshi15/Desktop/tizu1/frontend/src/App.tsx) / [setup.ts](file:///C:/Users/denshi15/Desktop/tizu1/frontend/src/test/setup.ts) | SSE購読で `EventSource` 未定義チェックがなくJSDOM環境で例外発生、およびブラウザAPIモックの不足 | Medium | `typeof EventSource === 'undefined'` ガードを追加し、`setup.ts` に `EventSource`, `scrollTo`, `matchMedia` のモックを定義。 | `frontend/src/__tests__/HazardFormAndList.test.tsx` |
-| **BUG-013** | [hazards.json](file:///C:/Users/denshi15/Desktop/tizu1/backend/data/hazards.json) | マージ競合解消時に全角スペース・閉じクォート欠落・カンマ欠落・重複プロパティ残骸が混入しJSON構文エラー（SyntaxError）が発生 | High | 全角スペース除去、閉じクォート・カンマ補完、末尾の不要残骸削除とフォーマット正規化を実施。全36件のデータを正常化。 | `backend/__tests__/api.test.ts` |
+| **BUG-001** | [App.tsx](file:///C:/Users/denshi36/Desktop/maho/frontend/src/App.tsx) | 投稿フォームの `<label>` に `htmlFor` がなく、フォームコントロールと紐付いていなかった（アクセシビリティ低下・テスト自動化阻害） | High | `<label htmlFor="...">` および `<select id="...">`、`<textarea id="...">` を明示的に設定。 | `frontend/src/__tests__/HazardFormAndList.test.tsx` |
+| **BUG-002** | [backend/server.ts](file:///C:/Users/denshi36/Desktop/maho/backend/server.ts) | テスト実行時に本番用 `hazards.json` が上書きされる、およびポート衝突によりテストが実行できない問題 | Critical | `process.env.HAZARDS_DATA_FILE` によるデータファイル切り替え、およびテスト時の `app.listen` スキップと `app` エクスポートに対応。 | `backend/__tests__/api.test.ts` |
+| **BUG-003** | [App.tsx](file:///C:/Users/denshi36/Desktop/maho/frontend/src/App.tsx) | 未知のカテゴリ名がバックエンドから返された場合、アイコンやスタイルが崩れるリスク | Medium | `typeColors[type] || typeColors.Other` および `colors[type] || colors.Other` のフォールバック定義を徹底。 | `frontend/src/__tests__/markerIcon.test.ts` |
+| **BUG-004** | [App.tsx](file:///C:/Users/denshi36/Desktop/maho/frontend/src/App.tsx) | 他人の投稿した危険箇所でも「なおす📝」ボタンが見えてしまい誤解を招く可能性 | High | `myHazardIds`（localStorage）に含まれない投稿には「なおす📝」ボタンを非表示化、権限注記を表示。 | `frontend/src/__tests__/HazardFormAndList.test.tsx` |
+| **BUG-005** | [backend/server.ts](file:///C:/Users/denshi36/Desktop/maho/backend/server.ts) | 存在しないハザードIDに対するコメント投稿や更新時に 500 エラーまたはデータ不整合が発生する | Medium | `findIndex === -1` 時の 404 エラーハンドリングおよび空コメントの 400 バリデーションを追加。 | `backend/__tests__/api.test.ts` |
+| **BUG-006** | [App.tsx](file:///C:/Users/denshi36/Desktop/maho/frontend/src/App.tsx) | ネットワーク切断時やサーバーダウン時に `fetch` が失敗した際、ユーザーにエラーが伝わらない | Medium | `fetchHazards` や各APIコールに親切なトースト通知（「つうしんに しっぱいしたよ」等）を追加。 | `frontend/src/__tests__/HazardFormAndList.test.tsx` |
+| **BUG-007** | [backend/server.ts](file:///C:/Users/denshi36/Desktop/maho/backend/server.ts) | 危険箇所を更新・削除した際に、古い画像ファイルが `backend/uploads/` に残留し続ける | Low | `storageService.ts` の `deleteImage` を `PUT`（画像更新時）および `DELETE`（ハザード解決時）に統合。 | `backend/__tests__/api.test.ts` |
+| **BUG-008** | [App.tsx](file:///C:/Users/denshi36/Desktop/maho/frontend/src/App.tsx) / [aiRoutes.ts](file:///C:/Users/denshi36/Desktop/maho/backend/routes/aiRoutes.ts) | AIあんぜんアドバイス取得時、レスポンスのキー名不一致（`advice` ↔ `forKids`）で画面に表示されない | High | バックエンドの `/api/ai/advice` で `advice` プロパティを返却し、フロントでも `data.forKids || data.advice` を参照可能に修正。 | `backend/__tests__/api.test.ts` |
+| **BUG-009** | [App.tsx](file:///C:/Users/denshi36/Desktop/maho/frontend/src/App.tsx) / [aiRoutes.ts](file:///C:/Users/denshi36/Desktop/maho/backend/routes/aiRoutes.ts) | 投稿フォームの「✨ AI判定」ボタン押下時に 404 エラーとなり自動判定が動作しない | High | バックエンドに `POST /api/ai/analyze-hazard` を実装し、パラメータ（`description`/`text`）と戻り値（`type`/`suggestedType`）を双方向サポート。 | `backend/__tests__/api.test.ts` |
+| **BUG-010** | [mapUtils.ts](file:///C:/Users/denshi36/Desktop/maho/frontend/src/utils/mapUtils.ts) / [App.tsx](file:///C:/Users/denshi36/Desktop/maho/frontend/src/App.tsx) | 「こども安心スポット (ChildSafety)」のカテゴリ定義が `typeLabels` / `typeColors` になく配色不整合 | Low | `mapUtils.ts` に青緑色 (`#1ABC9C`) 定義とひらがなラベルを追加し、投稿フォームにも選択肢を追加。 | `frontend/src/__tests__/markerIcon.test.ts` |
+| **BUG-011** | [.github/workflows/ci.yml](file:///C:/Users/denshi36/Desktop/maho/.github/workflows/ci.yml) / [cd.yml](file:///C:/Users/denshi36/Desktop/maho/.github/workflows/cd.yml) | GitHub Actions CIでNode.js 20が指定されており、`jsdom 30` (要件Node >=22) が初期化できずフロントエンドテストがクラッシュする | High | `ci.yml` および `cd.yml` の `node-version` をローカル環境と合致する `24` に更新。 | `frontend/src/__tests__/HazardFormAndList.test.tsx` |
+| **BUG-012** | [App.tsx](file:///C:/Users/denshi36/Desktop/maho/frontend/src/App.tsx) / [setup.ts](file:///C:/Users/denshi36/Desktop/maho/frontend/src/test/setup.ts) | SSE購読で `EventSource` 未定義チェックがなくJSDOM環境で例外発生、およびブラウザAPIモックの不足 | Medium | `typeof EventSource === 'undefined'` ガードを追加し、`setup.ts` に `EventSource`, `scrollTo`, `matchMedia` のモックを定義。 | `frontend/src/__tests__/HazardFormAndList.test.tsx` |
+| **BUG-013** | [hazards.json](file:///C:/Users/denshi36/Desktop/maho/backend/data/hazards.json) | マージ競合解消時に全角スペース・閉じクォート欠落・カンマ欠落・重複プロパティ残骸が混入しJSON構文エラー（SyntaxError）が発生 | High | 全角スペース除去、閉じクォート・カンマ補完、末尾の不要残骸削除とフォーマット正規化を実施。全36件のデータを正常化。 | `backend/__tests__/api.test.ts` |
+| **BUG-014** | [backend/server.ts](file:///C:/Users/denshi36/Desktop/maho/backend/server.ts) | PostGIS近傍クエリのLIMIT未バインドによるSQLインジェクション脆弱性、Multer/フィードバック例外ハンドリング不足、テスト時の本番feedback.json汚染リスク | High | LIMIT句のパラメータ化（`$N`）、座標・半径バリデーション、Multer例外のJSONエラーハンドラー導入、`FEEDBACK_DATA_FILE` 環境変数によるテストデータ完全分離を実装。 | `backend/__tests__/api.test.ts` |
 
 ---
 
@@ -67,9 +68,9 @@
 
 ### 2. バックエンド (`backend/__tests__/`)
 
-| テストファイル | 対象API | 検証内容 | 判定 |
+| テストファイル | 対象API・機能 | 検証内容 | 判定 |
 | :--- | :--- | :--- | :---: |
-| [`api.test.ts`](file:///C:/Users/denshi15/Desktop/tizu1/backend/__tests__/api.test.ts) | `GET /api/hazards` | 登録済みハザード一覧の正常取得 (200) | 🟢 PASS |
+| [`api.test.ts`](file:///C:/Users/denshi36/Desktop/maho/backend/__tests__/api.test.ts) | `GET /api/hazards` | 登録済みハザード一覧の正常取得 (200) | 🟢 PASS |
 | | `POST /api/hazards` | 新規ハザード登録とID自動付番、ファイル永続化 (201) | 🟢 PASS |
 | | `POST /api/hazards/:id/comments` | コメント追加とタイムスタンプ自動付与 (201) | 🟢 PASS |
 | | `POST /api/hazards/:id/comments` | 空テキスト時の 400 エラーハンドリング | 🟢 PASS |
@@ -80,6 +81,12 @@
 | | `DELETE /api/hazards/:id` | 削除時に紐づく画像ファイルの自動クリーンアップ (BUG-007) | 🟢 PASS |
 | | `POST /api/ai/analyze-hazard` | 投稿文からのAIカテゴリ・危険度自動判定 (BUG-009) | 🟢 PASS |
 | | `POST /api/ai/advice` | 子供向けAI安全アドバイスの取得とプロパティ整合性 (BUG-008) | 🟢 PASS |
+| | `GET /api/hazards/nearby` | 中心座標と半径指定による近傍ハザード取得・距離/徒歩時間算出・カテゴリ絞り込み・異常値400エラー | 🟢 PASS |
+| | `POST /api/alerts/trigger` | 現在地からの接近アラート判定・highestLevel算出・必須パラメータ欠落400エラー | 🟢 PASS |
+| | `GET /api/hazards/stats` | エリア危険度統計データ集計・カテゴリ別件数・リスク評価返却 | 🟢 PASS |
+| | `GET / POST /api/feedback` | アプリ内フィードバックの安全な投稿および一覧取得 | 🟢 PASS |
+| | `POST /api/hazards` | 不正座標指定時の 400 バリデーションエラーハンドリング | 🟢 PASS |
+| [`storageService.test.ts`](file:///C:/Users/denshi36/Desktop/maho/backend/__tests__/storageService.test.ts) | `uploadImage` / `deleteImage` | JPEG/PNG/GIF/WEBP画像アップロード、マジックナンバー検証、FD解放、ファイル削除・パストラバーサル防御 | 🟢 PASS |
 
 ---
 
