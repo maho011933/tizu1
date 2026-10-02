@@ -1,6 +1,9 @@
-import { Router, type Request, type Response } from 'express';
+import { Router } from 'express';
+import type { Request, Response } from 'express';
 import multer from 'multer';
 import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 import {
   getGeminiStatus,
   generateSafetyAdvice,
@@ -9,18 +12,41 @@ import {
   askSafetyQuestion
 } from '../services/geminiService.js';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const router = Router();
 
-// 画像アップロード設定（入力アシスト機能用）
+// アップロード先ディレクトリの絶対パス解決と存在確認
+const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
+
+// 画像アップロード設定（入力アシスト機能用: セキュアなパス解決・容量制限・拡張子検証）
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/');
+  destination: (_req, _file, cb) => {
+    cb(null, UPLOADS_DIR);
   },
-  filename: (req, file, cb) => {
-    cb(null, `ai_assist_${Date.now()}${path.extname(file.originalname)}`);
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const safeName = `ai_assist_${Date.now()}-${Math.random().toString(36).substring(2, 8)}${ext}`;
+    cb(null, safeName);
   }
 });
-const upload = multer({ storage });
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (_req, file, cb) => {
+    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (allowedMimeTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only JPG, PNG, GIF, and WEBP images are allowed.'));
+    }
+  }
+});
 
 /**
  * GET /api/ai/status
