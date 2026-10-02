@@ -9,6 +9,9 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const UPLOADS_DIR = path.resolve(__dirname, '..', 'uploads');
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
 
 export interface UploadedFileResult {
   url: string;
@@ -41,13 +44,26 @@ export function validateFileSignature(filePath: string, mimeType: string): boole
   if (!magicList) return false;
 
   const buffer = Buffer.alloc(12);
-  const fd = fs.openSync(filePath, 'r');
-  fs.readSync(fd, buffer, 0, 12, 0);
-  fs.closeSync(fd);
+  let fd: number | null = null;
+  try {
+    fd = fs.openSync(filePath, 'r');
+    const bytesRead = fs.readSync(fd, buffer, 0, 12, 0);
+    if (bytesRead < 3) return false;
 
-  return magicList.some(signature => {
-    return signature.every((byte, index) => buffer[index] === byte);
-  });
+    return magicList.some(signature => {
+      return signature.every((byte, index) => buffer[index] === byte);
+    });
+  } catch {
+    return false;
+  } finally {
+    if (fd !== null) {
+      try {
+        fs.closeSync(fd);
+      } catch {
+        // safe ignore
+      }
+    }
+  }
 }
 
 /**
@@ -65,6 +81,10 @@ export function generateSafeFileName(originalName: string, mimeType: string): st
  * 環境変数 STORAGE_PROVIDER (s3 | cloudinary | local) に応じて保存先を切替
  */
 export async function uploadImage(file: Express.Multer.File, port: string | number): Promise<UploadedFileResult> {
+  if (!file || !file.path) {
+    throw new Error('アップロード対象のファイルが存在しません。');
+  }
+
   // 1. MIMEタイプ検証
   if (!ALLOWED_MIME_TYPES[file.mimetype]) {
     if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
@@ -233,8 +253,11 @@ export async function deleteImage(imageUrlOrKey: string): Promise<boolean> {
       return true;
     }
 
-    // Local ファイル削除
+    // Local ファイル削除（パストラバーサル防止）
     const filename = path.basename(imageUrlOrKey);
+    if (!filename || filename === '.' || filename === '..' || filename.includes('/') || filename.includes('\\')) {
+      return false;
+    }
     const candidates = [
       path.join(UPLOADS_DIR, filename),
       path.join(process.cwd(), 'uploads', filename),
