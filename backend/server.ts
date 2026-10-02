@@ -25,7 +25,7 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 const DATA_FILE = process.env.HAZARDS_DATA_FILE || path.join(__dirname, 'data', 'hazards.json');
-const FEEDBACK_FILE = path.join(__dirname, 'data', 'feedback.json');
+const FEEDBACK_FILE = process.env.FEEDBACK_DATA_FILE || path.join(__dirname, 'data', 'feedback.json');
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
 
 // アップロードディレクトリの作成
@@ -94,6 +94,10 @@ function readLocalHazards(): any[] {
 }
 
 function writeLocalHazards(hazards: any[]) {
+  const dir = path.dirname(DATA_FILE);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
   fs.writeFileSync(DATA_FILE, JSON.stringify(hazards, null, 2), 'utf8');
 }
 
@@ -408,12 +412,14 @@ app.get('/api/hazards/nearby', async (req, res) => {
 
     const lat = latStr !== undefined ? parseFloat(latStr) : NaN;
     const lng = lngStr !== undefined ? parseFloat(lngStr) : NaN;
-    const radius = radiusStr !== undefined ? parseFloat(radiusStr) : 5000;
-    const limit = limitStr !== undefined ? parseInt(limitStr, 10) : 50;
+    const rawRadius = radiusStr !== undefined ? parseFloat(radiusStr) : 5000;
+    const radius = isNaN(rawRadius) || rawRadius <= 0 ? 5000 : Math.min(rawRadius, 50000);
+    const rawLimit = limitStr !== undefined ? parseInt(limitStr, 10) : 50;
+    const limit = isNaN(rawLimit) || rawLimit <= 0 ? 50 : Math.min(rawLimit, 100);
 
-    if (isNaN(lat) || isNaN(lng)) {
+    if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
       return res.status(400).json({
-        error: 'lat (緯度) と lng (経度) の数値を指定してください。'
+        error: 'lat (緯度 -90〜90) と lng (経度 -180〜180) の有効な数値を指定してください。'
       });
     }
 
@@ -444,11 +450,12 @@ app.get('/api/hazards/nearby', async (req, res) => {
       const params: any[] = [lng, lat, radius];
 
       if (type) {
-        querySql += ` AND type = $4`;
         params.push(type);
+        querySql += ` AND type = $${params.length}`;
       }
 
-      querySql += ` ORDER BY "distanceMeters" ASC LIMIT ${limit};`;
+      params.push(limit);
+      querySql += ` ORDER BY "distanceMeters" ASC LIMIT $${params.length};`;
 
       const result = await pool.query(querySql, params);
 
@@ -501,12 +508,13 @@ app.get('/api/hazards/nearby', async (req, res) => {
  */
 const handleLocationTrigger = async (req: Request, res: Response) => {
   try {
-    const { lat, lng, alertRadius, deviceId } = req.body;
+    const { lat, lng, alertRadius, deviceId } = req.body || {};
     const parsedLat = typeof lat === 'number' ? lat : parseFloat(lat);
     const parsedLng = typeof lng === 'number' ? lng : parseFloat(lng);
-    const radius = typeof alertRadius === 'number' ? alertRadius : (parseFloat(alertRadius) || 50);
+    const rawRadius = typeof alertRadius === 'number' ? alertRadius : (parseFloat(alertRadius) || 50);
+    const radius = isNaN(rawRadius) || rawRadius <= 0 ? 50 : Math.min(rawRadius, 10000);
 
-    if (isNaN(parsedLat) || isNaN(parsedLng)) {
+    if (isNaN(parsedLat) || isNaN(parsedLng) || parsedLat < -90 || parsedLat > 90 || parsedLng < -180 || parsedLng > 180) {
       return res.status(400).json({
         error: 'lat (緯度) と lng (経度) を正しく指定してください。'
       });
@@ -612,10 +620,14 @@ app.get('/api/alerts/stream', (_req, res) => {
     res.write(': keep-alive\n\n');
   }, 25000);
 
-  _req.on('close', () => {
+  const cleanup = () => {
     clearInterval(keepAlive);
     sseClients.delete(res);
-  });
+  };
+
+  _req.on('close', cleanup);
+  res.on('error', cleanup);
+  res.on('finish', cleanup);
 });
 
 /**
@@ -682,33 +694,57 @@ app.get('/api/feedback', (_req, res) => {
 });
 
 app.post('/api/feedback', (req, res) => {
-  const feedbackData = req.body;
-  const newFeedback = {
-    id: Date.now(),
-    createdAt: new Date().toISOString(),
-    ...feedbackData
-  };
+  try {
+    const feedbackData = req.body;
+    const newFeedback = {
+      id: Date.now(),
+      createdAt: new Date().toISOString(),
+      ...feedbackData
+    };
 
-  let feedbacks: any[] = [];
-  if (fs.existsSync(FEEDBACK_FILE)) {
-    try {
-      const data = fs.readFileSync(FEEDBACK_FILE, 'utf8');
-      feedbacks = JSON.parse(data || '[]');
-    } catch {
-      feedbacks = [];
+    const feedbackDir = path.dirname(FEEDBACK_FILE);
+    if (!fs.existsSync(feedbackDir)) {
+      fs.mkdirSync(feedbackDir, { recursive: true });
     }
-  }
 
-  feedbacks.push(newFeedback);
-  fs.writeFileSync(FEEDBACK_FILE, JSON.stringify(feedbacks, null, 2), 'utf8');
-  res.status(201).json(newFeedback);
+    let feedbacks: any[] = [];
+    if (fs.existsSync(FEEDBACK_FILE)) {
+      try {
+        const data = fs.readFileSync(FEEDBACK_FILE, 'utf8');
+        feedbacks = JSON.parse(data || '[]');
+      } catch {
+        feedbacks = [];
+      }
+    }
+
+    feedbacks.push(newFeedback);
+    fs.writeFileSync(FEEDBACK_FILE, JSON.stringify(feedbacks, null, 2), 'utf8');
+    res.status(201).json(newFeedback);
+  } catch (error: any) {
+    console.error('Error saving feedback:', error);
+    res.status(500).json({ error: 'フィードバックの保存に失敗しました', details: error.message });
+  }
+});
+
+// Multer エラーおよび共通エラーハンドラー
+app.use((err: any, _req: Request, res: Response, next: express.NextFunction) => {
+  if (err instanceof multer.MulterError) {
+    return res.status(400).json({ error: `Upload error: ${err.message}` });
+  } else if (err) {
+    return res.status(400).json({ error: err.message || 'An unknown error occurred' });
+  }
+  next();
 });
 
 // サーバー起動およびDB初期化
 if (process.env.NODE_ENV !== 'test') {
   app.listen(PORT, async () => {
     console.log(`🚀 Server is running on http://localhost:${PORT}`);
-    await initializeDatabase(DATA_FILE);
+    try {
+      await initializeDatabase(DATA_FILE);
+    } catch (dbErr) {
+      console.error('Database initialization error:', dbErr);
+    }
   });
 }
 

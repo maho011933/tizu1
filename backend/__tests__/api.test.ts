@@ -7,9 +7,11 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const TEST_DATA_FILE = path.join(__dirname, 'test_hazards.json');
+const TEST_FEEDBACK_FILE = path.join(__dirname, 'test_feedback.json');
 
 // テスト用データファイルを環境変数に設定
 process.env.HAZARDS_DATA_FILE = TEST_DATA_FILE;
+process.env.FEEDBACK_DATA_FILE = TEST_FEEDBACK_FILE;
 process.env.NODE_ENV = 'test';
 
 // 動的インポートで環境変数を反映
@@ -41,11 +43,15 @@ describe('Backend Hazard API Endpoints (バックエンドAPIテスト)', () => 
 
   beforeEach(() => {
     fs.writeFileSync(TEST_DATA_FILE, JSON.stringify(initialHazards, null, 2), 'utf8');
+    fs.writeFileSync(TEST_FEEDBACK_FILE, JSON.stringify([], null, 2), 'utf8');
   });
 
   afterEach(() => {
     if (fs.existsSync(TEST_DATA_FILE)) {
       fs.unlinkSync(TEST_DATA_FILE);
+    }
+    if (fs.existsSync(TEST_FEEDBACK_FILE)) {
+      fs.unlinkSync(TEST_FEEDBACK_FILE);
     }
   });
 
@@ -216,4 +222,107 @@ describe('Backend Hazard API Endpoints (バックエンドAPIテスト)', () => 
       expect(res.body.advice.length).toBeGreaterThan(0);
     });
   });
+
+  describe('Nearby Hazards Endpoint (GET /api/hazards/nearby)', () => {
+    it('中心座標と半径を指定して近傍ハザードを取得できること', async () => {
+      const res = await request(app)
+        .get('/api/hazards/nearby')
+        .query({ lat: 35.6895, lng: 139.6917, radius: 1000 });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('center');
+      expect(res.body).toHaveProperty('radiusMeters', 1000);
+      expect(res.body).toHaveProperty('hazards');
+      expect(Array.isArray(res.body.hazards)).toBe(true);
+      expect(res.body.hazards.length).toBeGreaterThan(0);
+      expect(res.body.hazards[0]).toHaveProperty('distanceMeters');
+      expect(res.body.hazards[0]).toHaveProperty('walkTimeMinutes');
+    });
+
+    it('カテゴリ指定でフィルタリングできること', async () => {
+      const res = await request(app)
+        .get('/api/hazards/nearby')
+        .query({ lat: 35.6895, lng: 139.6917, radius: 1000, type: 'Traffic' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.hazards.every((h: any) => h.type === 'Traffic')).toBe(true);
+    });
+
+    it('緯度または経度が不正な場合は 400 エラーを返すこと', async () => {
+      const res = await request(app)
+        .get('/api/hazards/nearby')
+        .query({ lat: 'invalid', lng: 139.6917 });
+
+      expect(res.status).toBe(400);
+      expect(res.body).toHaveProperty('error');
+    });
+  });
+
+  describe('Location Alert Trigger (POST /api/alerts/trigger)', () => {
+    it('現在位置から接近アラートが正常に判定されること', async () => {
+      const res = await request(app)
+        .post('/api/alerts/trigger')
+        .send({ lat: 35.6895, lng: 139.6917, alertRadius: 500 });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('success', true);
+      expect(res.body).toHaveProperty('currentLocation');
+      expect(res.body).toHaveProperty('hasAlert');
+      expect(res.body).toHaveProperty('highestLevel');
+      expect(res.body).toHaveProperty('alerts');
+      expect(Array.isArray(res.body.alerts)).toBe(true);
+    });
+
+    it('緯度経度が欠落している場合は 400 エラーを返すこと', async () => {
+      const res = await request(app)
+        .post('/api/alerts/trigger')
+        .send({ alertRadius: 100 });
+
+      expect(res.status).toBe(400);
+      expect(res.body).toHaveProperty('error');
+    });
+  });
+
+  describe('Hazard Statistics Endpoint (GET /api/hazards/stats)', () => {
+    it('統計データが正常に返されること', async () => {
+      const res = await request(app).get('/api/hazards/stats');
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('totalHazards');
+      expect(res.body).toHaveProperty('byCategory');
+      expect(Array.isArray(res.body.byCategory)).toBe(true);
+      expect(res.body).toHaveProperty('overallRiskLevel');
+      expect(res.body).toHaveProperty('adviceForKids');
+    });
+  });
+
+  describe('User Feedback API (/api/feedback)', () => {
+    it('フィードバックを正常に投稿および取得できること', async () => {
+      const postRes = await request(app)
+        .post('/api/feedback')
+        .send({ rating: 5, comment: 'とても使いやすいマップです！' });
+
+      expect(postRes.status).toBe(201);
+      expect(postRes.body).toHaveProperty('id');
+      expect(postRes.body.comment).toBe('とても使いやすいマップです！');
+
+      const getRes = await request(app).get('/api/feedback');
+      expect(getRes.status).toBe(200);
+      expect(Array.isArray(getRes.body)).toBe(true);
+      expect(getRes.body.some((f: any) => f.comment === 'とても使いやすいマップです！')).toBe(true);
+    });
+  });
+
+  describe('Hazard Validation Error Handling', () => {
+    it('POST /api/hazards で無効な座標の場合は 400 エラーを返すこと', async () => {
+      const res = await request(app)
+        .post('/api/hazards')
+        .field('lat', 'not-a-number')
+        .field('lng', 'not-a-number')
+        .field('type', 'Traffic');
+
+      expect(res.status).toBe(400);
+      expect(res.body).toHaveProperty('error', 'Invalid coordinates');
+    });
+  });
 });
+

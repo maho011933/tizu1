@@ -238,6 +238,10 @@ describe('Hazard Form & Map Interaction Tests (投稿フォーム・リスト動
   it('カテゴリ選択のドロップダウンで「ぼうはん・ふしんしゃ 👮」などを選択できること', async () => {
     render(<App />);
 
+    await waitFor(() => {
+      expect(screen.getAllByText('みちが せまくて くるまが あぶない').length).toBeGreaterThan(0);
+    });
+
     const select = screen.getByLabelText('なにが あぶない？') as HTMLSelectElement;
     fireEvent.change(select, { target: { value: 'Crime' } });
 
