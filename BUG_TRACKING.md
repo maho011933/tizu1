@@ -11,8 +11,8 @@
 | **Critical (緊急・重大)** | 1 | 1 | 0 | 0 |
 | **High (高・機能不全)** | 7 | 7 | 0 | 0 |
 | **Medium (中・UX/エッジケース)** | 5 | 5 | 0 | 0 |
-| **Low (低・軽微な改善)** | 3 | 3 | 0 | 0 |
-| **合計** | **16** | **16** | **0** | **0** |
+| **Low (低・軽微な改善)** | 4 | 4 | 0 | 0 |
+| **合計** | **17** | **17** | **0** | **0** |
 
 ---
 
@@ -37,6 +37,7 @@
 | **BUG-013** | [hazards.json](file:///C:/Users/denshi36/Desktop/maho/backend/data/hazards.json) | マージ競合解消時に全角スペース・閉じクォート欠落・カンマ欠落・重複プロパティ残骸が混入しJSON構文エラー（SyntaxError）が発生 | High | 全角スペース除去、閉じクォート・カンマ補完、末尾の不要残骸削除とフォーマット正規化を実施。全36件のデータを正常化。 | `backend/__tests__/api.test.ts` |
 | **BUG-014** | [backend/server.ts](file:///C:/Users/denshi36/Desktop/maho/backend/server.ts) | PostGIS近傍クエリのLIMIT未バインドによるSQLインジェクション脆弱性、Multer/フィードバック例外ハンドリング不足、テスト時の本番feedback.json汚染リスク | High | LIMIT句のパラメータ化（`$N`）、座標・半径バリデーション、Multer例外のJSONエラーハンドラー導入、`FEEDBACK_DATA_FILE` 環境変数によるテストデータ完全分離を実装。 | `backend/__tests__/api.test.ts` |
 | **BUG-015** | [backend/.env.example](file:///C:/Users/denshi36/Desktop/maho/backend/.env.example) | `PORT=3001` が2重定義され、PostGIS/S3/Cloudinary等の最新環境変数が未記載、および過去のコミット履歴に起因するCI失敗ログ（❌）が表示される問題 | Low | `PORT` 重複解消、Gemini/DB/S3/Cloudinary/Server全環境変数の網羅・詳細コメント追記、および最新CIでの全テスト合格検証。 | `backend/__tests__/api.test.ts` / CIパイプライン |
+| **BUG-016** | [markerIcon.test.ts](file:///C:/Users/denshi26/Desktop/新しいフォルダー/frontend/src/__tests__/markerIcon.test.ts) | 新規カテゴリ（避難所・AED）および危険度別マーカー（動的サイズ・Lvバッジ・アニメーションクラス）のテスト未網羅、および過去コミット履歴（`1be9e3a`）に起因するCIエラーログ（❌）が表示される問題 | Low | 全8カテゴリ（Traffic, Crime, Disaster, Lighting, Shelter, AED, ChildSafety, Other）の背景色・絵文字・ひらがなラベル整合性テスト、危険度Lv.1〜5のサイズ/アンカー/バッジ/アニメーションクラス検証、自宅アイコン仕様テストを完備し、最新CIチェック（Lint, Test, Build）の合格を検証。 | `frontend/src/__tests__/markerIcon.test.ts` |
 
 ---
 
@@ -52,11 +53,12 @@
 
 | テストファイル | テスト項目 | 検証内容 | 判定 |
 | :--- | :--- | :--- | :---: |
-| [`markerIcon.test.ts`](file:///C:/Users/denshi15/Desktop/tizu1/frontend/src/__tests__/markerIcon.test.ts) | カテゴリ別ピン色分け | Traffic(赤), Crime(水色), Disaster(灰色), Lighting(黄), ChildSafety(青緑), Other(紫) の背景色 | 🟢 PASS |
-| | 未知カテゴリフォールバック | 想定外の文字列でも Other(紫) に安全にフォールバック | 🟢 PASS |
-| | 「じぶん」バッジと金枠 | `isMine=true` で金色枠線(`#F1C40F`)と「じぶん」バッジ描画 | 🟢 PASS |
-| | 自宅ピン (`getHomeIcon`) | 🏠 アイコンと専用スタイルの生成 | 🟢 PASS |
-| | 配色整合性 (GEMINI.md) | `typeColors` と `getMarkerIcon` の配色の一致、ひらがなラベルの存在 | 🟢 PASS |
+| [`markerIcon.test.ts`](file:///C:/Users/denshi26/Desktop/新しいフォルダー/frontend/src/__tests__/markerIcon.test.ts) | 全8カテゴリ別ピン色・絵文字 | Traffic(赤/🚗), Crime(水色/👮), Disaster(灰/🌊), Lighting(黄/🌙), Shelter(緑/🏫), AED(橙/💓), ChildSafety(青緑/🏠), Other(紫/🐾) の背景色・絵文字生成 | 🟢 PASS |
+| | 未知カテゴリフォールバック | 想定外の文字列でも Other(紫/🐾) に安全にフォールバック | 🟢 PASS |
+| | 「じぶん」バッジと金枠 | `isMine=true` で金色枠線(`#F1C40F`)と「じぶん」バッジ描画、`false` で通常白枠 | 🟢 PASS |
+| | 危険度別動的サイズ・視覚効果 | Lv.1(24px)〜Lv.5(58px)のピン拡縮、Lv.Xバッジ背景色、Lv.4(`pulse-marker`)/Lv.5(`alert-marker`)クラス付与、範囲外危険度の安全なクランプ処理 | 🟢 PASS |
+| | 自宅ピン (`getHomeIcon`) | 🏠 アイコン、背景色(`#2C3E50`)、専用スタイル、サイズ(`[36, 36]`)とアンカー(`[18, 18]`) | 🟢 PASS |
+| | GEMINI.md 配色・ひらがな整合性 | 全8カテゴリの `typeColors` と `getMarkerIcon` の背景色完全一致、`typeLabels` ひらがなラベル・絵文字の完全網羅 | 🟢 PASS |
 | [`HazardFormAndList.test.tsx`](file:///C:/Users/denshi15/Desktop/tizu1/frontend/src/__tests__/HazardFormAndList.test.tsx) | 一覧初期ロード | APIから取得したハザード一覧が正しく画面に表示される | 🟢 PASS |
 | | ピンの描画 | 地図上に登録済みハザードピンと自宅ピンが描画される | 🟢 PASS |
 | | 座標未選択バリデーション | 地図未選択での送信時に「ちずを おして ばしょを えらんでね！」アラート | 🟢 PASS |

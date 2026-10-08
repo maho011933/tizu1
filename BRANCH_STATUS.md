@@ -18,9 +18,9 @@ pie title プロジェクト統合 & 品質検証
 - **検出バグ修正率:** **13 / 13 件 修正完了 (100% 解決済み！🟢)**
 - **GitHub Actions CI (Run 35302151004):** **Frontend CI / Backend CI ともに PASS (100% 合格！🟢)**
 - **バックエンドテスト:** **27 / 27 件 PASS (100%)**
-- **フロントエンドテスト:** **20 / 20 件 PASS (100%)**
+- **フロントエンドテスト:** **29 / 29 件 PASS (100%)**
 - **TypeScript型チェック & 本番ビルド:** **エラー 0 件 (成功)**
-- **.gitignore / README.md / docker-compose.yml / api.test.ts / hazards.json / aiRoutes.ts / storageService.ts / server.ts / backend/.env.example CIチェック検証:** **型チェック・リント・テスト・ビルド 全工程ローカル合格確認済み (🟢)**
+- **.gitignore / README.md / docker-compose.yml / api.test.ts / hazards.json / aiRoutes.ts / storageService.ts / server.ts / backend/.env.example / markerIcon.test.ts CIチェック検証:** **型チェック・リント・テスト・ビルド 全工程ローカル合格確認済み (🟢)**
 
 ---
 
@@ -70,6 +70,10 @@ pie title プロジェクト統合 & 品質検証
     - `PORT=3001` の2重定義を解消し、サーバー設定（PORT, NODE_ENV, BASE_URL）、Gemini API、PostgreSQL/PostGIS、AWS S3 / Cloudinary ストレージ、テスト用データファイルパスなど全環境変数仕様を網羅・詳細コメント化。
     - 過去のマージコミット（`204b13f`）に起因する古いCI失敗ログ（❌）の解消に向け、最新CI環境での全チェック合格を検証。
     - バックエンドCI（型チェック・テスト 27件）およびフロントエンドCI（リント・テスト 20件・ビルド）の完全合格を確認。
+13. **🎨 `markerIcon.test.ts` 新規カテゴリ・危険度別動的サイズテスト拡充＆CIステータス健全化**:
+    - 天童市オープンデータ連携で追加された避難所（`Shelter`）・AED（`AED`）およびこども安心スポット（`ChildSafety`）を含む全8カテゴリの背景色・絵文字・ひらがなラベル整合性テストを拡充。
+    - 危険度Lv.1〜5に応じたピンサイズ（24px〜58px）、Lvバッジ背景色、点滅/パルスアニメーションクラス（`alert-marker` / `pulse-marker`）、および境界値安全クランプの単体テストを網羅（テスト数: 13件 → 22件、フロントエンド総テスト数: 29件）。
+    - 過去のコミット履歴（`1be9e3a`）に起因するGitHub Actions「Frontend CI (Lint, Test & Build)」の失敗ログ（❌）を解消し、最新CIチェック（型チェック・リント・全テスト・ビルド）の完全合格を確認。
 
 ---
 
