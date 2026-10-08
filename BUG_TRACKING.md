@@ -11,8 +11,8 @@
 | **Critical (緊急・重大)** | 1 | 1 | 0 | 0 |
 | **High (高・機能不全)** | 7 | 7 | 0 | 0 |
 | **Medium (中・UX/エッジケース)** | 5 | 5 | 0 | 0 |
-| **Low (低・軽微な改善)** | 2 | 2 | 0 | 0 |
-| **合計** | **15** | **15** | **0** | **0** |
+| **Low (低・軽微な改善)** | 3 | 3 | 0 | 0 |
+| **合計** | **16** | **16** | **0** | **0** |
 
 ---
 
@@ -36,6 +36,7 @@
 | **BUG-012** | [App.tsx](file:///C:/Users/denshi36/Desktop/maho/frontend/src/App.tsx) / [setup.ts](file:///C:/Users/denshi36/Desktop/maho/frontend/src/test/setup.ts) | SSE購読で `EventSource` 未定義チェックがなくJSDOM環境で例外発生、およびブラウザAPIモックの不足 | Medium | `typeof EventSource === 'undefined'` ガードを追加し、`setup.ts` に `EventSource`, `scrollTo`, `matchMedia` のモックを定義。 | `frontend/src/__tests__/HazardFormAndList.test.tsx` |
 | **BUG-013** | [hazards.json](file:///C:/Users/denshi36/Desktop/maho/backend/data/hazards.json) | マージ競合解消時に全角スペース・閉じクォート欠落・カンマ欠落・重複プロパティ残骸が混入しJSON構文エラー（SyntaxError）が発生 | High | 全角スペース除去、閉じクォート・カンマ補完、末尾の不要残骸削除とフォーマット正規化を実施。全36件のデータを正常化。 | `backend/__tests__/api.test.ts` |
 | **BUG-014** | [backend/server.ts](file:///C:/Users/denshi36/Desktop/maho/backend/server.ts) | PostGIS近傍クエリのLIMIT未バインドによるSQLインジェクション脆弱性、Multer/フィードバック例外ハンドリング不足、テスト時の本番feedback.json汚染リスク | High | LIMIT句のパラメータ化（`$N`）、座標・半径バリデーション、Multer例外のJSONエラーハンドラー導入、`FEEDBACK_DATA_FILE` 環境変数によるテストデータ完全分離を実装。 | `backend/__tests__/api.test.ts` |
+| **BUG-015** | [backend/.env.example](file:///C:/Users/denshi36/Desktop/maho/backend/.env.example) | `PORT=3001` が2重定義され、PostGIS/S3/Cloudinary等の最新環境変数が未記載、および過去のコミット履歴に起因するCI失敗ログ（❌）が表示される問題 | Low | `PORT` 重複解消、Gemini/DB/S3/Cloudinary/Server全環境変数の網羅・詳細コメント追記、および最新CIでの全テスト合格検証。 | `backend/__tests__/api.test.ts` / CIパイプライン |
 
 ---
 

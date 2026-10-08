@@ -20,7 +20,7 @@ pie title プロジェクト統合 & 品質検証
 - **バックエンドテスト:** **27 / 27 件 PASS (100%)**
 - **フロントエンドテスト:** **20 / 20 件 PASS (100%)**
 - **TypeScript型チェック & 本番ビルド:** **エラー 0 件 (成功)**
-- **.gitignore / README.md / docker-compose.yml / api.test.ts / hazards.json / aiRoutes.ts / storageService.ts / server.ts CIチェック検証:** **型チェック・リント・テスト・ビルド 全工程ローカル合格確認済み (🟢)**
+- **.gitignore / README.md / docker-compose.yml / api.test.ts / hazards.json / aiRoutes.ts / storageService.ts / server.ts / backend/.env.example CIチェック検証:** **型チェック・リント・テスト・ビルド 全工程ローカル合格確認済み (🟢)**
 
 ---
 
@@ -66,6 +66,10 @@ pie title プロジェクト統合 & 品質検証
     - 接近通知トリガーにおける緯度経度境界値チェック、Multer画像アップロード例外時の安全なJSONエラーハンドラーを追加。
     - SSEクライアント切断時のリーク防止（`res.on('error')` / `res.on('finish')` 連動）およびフィードバック保存ディレクトリ自動生成を整備。
     - バックエンド単体テスト（8件追加・計27件）を完備し、バックエンドCI（型チェック・テスト 27件）およびフロントエンドCI（リント・テスト 20件・ビルド）の完全合格を確認。
+12. **🔧 `backend/.env.example` 重複定義解消・環境変数仕様拡充＆CIステータス健全化**:
+    - `PORT=3001` の2重定義を解消し、サーバー設定（PORT, NODE_ENV, BASE_URL）、Gemini API、PostgreSQL/PostGIS、AWS S3 / Cloudinary ストレージ、テスト用データファイルパスなど全環境変数仕様を網羅・詳細コメント化。
+    - 過去のマージコミット（`204b13f`）に起因する古いCI失敗ログ（❌）の解消に向け、最新CI環境での全チェック合格を検証。
+    - バックエンドCI（型チェック・テスト 27件）およびフロントエンドCI（リント・テスト 20件・ビルド）の完全合格を確認。
 
 ---
 
