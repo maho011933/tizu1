@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
 
 export interface LocationPoint {
   lat: number;
@@ -26,7 +26,7 @@ export const AVATAR_OPTIONS: AvatarOption[] = [
   { id: 'robot', emoji: '🤖', label: 'ロボット', color: '#1ABC9C', type: 'walk' },
 ];
 
-interface LocationContextType {
+export interface LocationContextType {
   userPos: [number, number] | null;
   accuracy: number | null;
   heading: number | null;
@@ -46,13 +46,31 @@ interface LocationContextType {
 const LocationContext = createContext<LocationContextType | undefined>(undefined);
 
 // 大円距離に基づく方位角（0〜360度）の計算
-function calculateHeading(lat1: number, lng1: number, lat2: number, lng2: number): number {
+export function calculateHeading(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  if (lat1 === lat2 && lng1 === lng2) return 0;
   const dLng = (lng2 - lng1) * (Math.PI / 180);
-  const y = Math.sin(dLng) * Math.cos(lat2 * (Math.PI / 180));
-  const x = Math.cos(lat1 * (Math.PI / 180)) * Math.sin(lat2 * (Math.PI / 180)) -
-            Math.sin(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.cos(dLng);
+  const lat1Rad = lat1 * (Math.PI / 180);
+  const lat2Rad = lat2 * (Math.PI / 180);
+  const y = Math.sin(dLng) * Math.cos(lat2Rad);
+  const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) -
+            Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLng);
   const brng = Math.atan2(y, x) * (180 / Math.PI);
   return (brng + 360) % 360;
+}
+
+// localStorageからアバターを安全に読み出す
+function getStoredAvatar(): string {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const saved = window.localStorage.getItem('user_avatar');
+      if (saved && AVATAR_OPTIONS.some(a => a.id === saved)) {
+        return saved;
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to read avatar from localStorage:', err);
+  }
+  return 'boy';
 }
 
 export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -63,19 +81,23 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [isTracking, setIsTracking] = useState<boolean>(true);
   const [locationHistory, setLocationHistory] = useState<LocationPoint[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [watchId, setWatchId] = useState<number | null>(null);
+  const watchIdRef = useRef<number | null>(null);
   
-  // アバター選択 (ローカルストレージに保存)
-  const [avatar, setAvatarState] = useState<string>(() => {
-    return localStorage.getItem('user_avatar') || 'boy';
-  });
+  // アバター選択 (ローカルストレージに安全に保存)
+  const [avatar, setAvatarState] = useState<string>(getStoredAvatar);
 
   // おさんぽデモシミュレーション
   const [isSimulating, setIsSimulating] = useState<boolean>(false);
 
   const setAvatar = useCallback((newAvatarId: string) => {
     setAvatarState(newAvatarId);
-    localStorage.setItem('user_avatar', newAvatarId);
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem('user_avatar', newAvatarId);
+      }
+    } catch (err) {
+      console.warn('Failed to save avatar to localStorage:', err);
+    }
   }, []);
 
   const handlePositionSuccess = useCallback((position: GeolocationPosition) => {
@@ -138,33 +160,40 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
   }, []);
 
   const startTracking = useCallback(() => {
-    if (!("geolocation" in navigator)) {
+    if (typeof window === 'undefined' || !('geolocation' in navigator)) {
       setError("お使いのブラウザは位置情報(Geolocation)に対応していません");
       return;
     }
 
-    if (watchId !== null) return;
+    if (watchIdRef.current !== null) return;
 
-    const id = navigator.geolocation.watchPosition(
-      handlePositionSuccess,
-      handlePositionError,
-      {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 1000
-      }
-    );
-    setWatchId(id);
-    setIsTracking(true);
-  }, [watchId, handlePositionSuccess, handlePositionError]);
+    try {
+      const id = navigator.geolocation.watchPosition(
+        handlePositionSuccess,
+        handlePositionError,
+        {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 1000
+        }
+      );
+      watchIdRef.current = id;
+      setIsTracking(true);
+    } catch (err) {
+      console.warn("Failed to watchPosition:", err);
+      setError("位置情報の取得を開始できませんでした");
+    }
+  }, [handlePositionSuccess, handlePositionError]);
 
   const stopTracking = useCallback(() => {
-    if (watchId !== null) {
-      navigator.geolocation.clearWatch(watchId);
-      setWatchId(null);
+    if (watchIdRef.current !== null) {
+      if (typeof window !== 'undefined' && 'geolocation' in navigator) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+      watchIdRef.current = null;
     }
     setIsTracking(false);
-  }, [watchId]);
+  }, []);
 
   const clearHistory = useCallback(() => {
     setLocationHistory([]);
@@ -216,7 +245,8 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
       clearInterval(interval);
       setIsMoving(false);
     };
-  }, [isSimulating, userPos]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSimulating]);
 
   // 移動判定の自動停止タイマー（実測時）
   useEffect(() => {
@@ -230,12 +260,12 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
   }, [isMoving, isSimulating]);
 
   useEffect(() => {
-    if (isTracking) {
+    if (isTracking && watchIdRef.current === null) {
       startTracking();
     }
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && isTracking && watchId === null) {
+      if (document.visibilityState === 'visible' && isTracking && watchIdRef.current === null) {
         startTracking();
       }
     };
@@ -243,11 +273,20 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      if (watchId !== null) {
-        navigator.geolocation.clearWatch(watchId);
+    };
+  }, [isTracking, startTracking]);
+
+  // アンマウント時の完全クリーンアップ
+  useEffect(() => {
+    return () => {
+      if (watchIdRef.current !== null) {
+        if (typeof window !== 'undefined' && 'geolocation' in navigator) {
+          navigator.geolocation.clearWatch(watchIdRef.current);
+        }
+        watchIdRef.current = null;
       }
     };
-  }, [isTracking, startTracking, watchId]);
+  }, []);
 
   return (
     <LocationContext.Provider
