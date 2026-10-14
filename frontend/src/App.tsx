@@ -5,7 +5,7 @@ import './App.css';
 import L from 'leaflet';
 import { useLocation, AVATAR_OPTIONS } from './context/LocationContext';
 import { getMarkerIcon, getHomeIcon, typeLabels, typeColors } from './utils/mapUtils';
-import type { Hazard } from './types';
+import type { EnhancedHazard } from './types';
 
 // Leaflet デフォルトアイコン設定
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
@@ -21,15 +21,6 @@ L.Marker.prototype.options.icon = DefaultIcon;
 
 // 天童市役所（初期位置）
 const TENDO_POS: [number, number] = [38.3582, 140.3705];
-
-interface EnhancedHazard extends Hazard {
-  level?: number;
-  timeOfDay?: string;
-  dangerLevel?: number;
-  distanceMeters?: number;
-  walkTimeMinutes?: number;
-  createdAt?: string;
-}
 
 // マップ移動ヘルパー
 const MapUpdater: React.FC<{ center: [number, number]; zoom?: number }> = ({ center, zoom }) => {
