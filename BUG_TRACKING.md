@@ -11,8 +11,8 @@
 | **Critical (緊急・重大)** | 1 | 1 | 0 | 0 |
 | **High (高・機能不全)** | 7 | 7 | 0 | 0 |
 | **Medium (中・UX/エッジケース)** | 6 | 6 | 0 | 0 |
-| **Low (低・軽微な改善)** | 4 | 4 | 0 | 0 |
-| **合計** | **18** | **18** | **0** | **0** |
+| **Low (低・軽微な改善)** | 5 | 5 | 0 | 0 |
+| **合計** | **19** | **19** | **0** | **0** |
 
 ---
 
@@ -39,6 +39,7 @@
 | **BUG-015** | [backend/.env.example](file:///C:/Users/denshi36/Desktop/maho/backend/.env.example) | `PORT=3001` が2重定義され、PostGIS/S3/Cloudinary等の最新環境変数が未記載、および過去のコミット履歴に起因するCI失敗ログ（❌）が表示される問題 | Low | `PORT` 重複解消、Gemini/DB/S3/Cloudinary/Server全環境変数の網羅・詳細コメント追記、および最新CIでの全テスト合格検証。 | `backend/__tests__/api.test.ts` / CIパイプライン |
 | **BUG-016** | [markerIcon.test.ts](file:///C:/Users/denshi36/Desktop/maho/frontend/src/__tests__/markerIcon.test.ts) | 新規カテゴリ（避難所・AED）および危険度別マーカー（動的サイズ・Lvバッジ・アニメーションクラス）のテスト未網羅、および過去コミット履歴（`1be9e3a`）に起因するCIエラーログ（❌）が表示される問題 | Low | 全8カテゴリ（Traffic, Crime, Disaster, Lighting, Shelter, AED, ChildSafety, Other）の背景色・絵文字・ひらがなラベル整合性テスト、危険度Lv.1〜5のサイズ/アンカー/バッジ/アニメーションクラス検証、自宅アイコン仕様テストを完備し、最新CIチェック（Lint, Test, Build）の合格を検証。 | `frontend/src/__tests__/markerIcon.test.ts` |
 | **BUG-017** | [LocationContext.tsx](file:///C:/Users/denshi36/Desktop/maho/frontend/src/context/LocationContext.tsx) | 過去のコミット履歴（`1be9e3a`）に起因するCIエラーログ（❌）の表示、`watchId` state更新に伴うクリーンアップ誤破棄（ライフサイクルバグ）、シミュレーションの `userPos` 更新によるインターバルリセット、`localStorage` 例外クラッシュリスク、テストコード未網羅 | Medium | `watchIdRef` 導入によるトラッキング登録・破棄ライフサイクルの健全化（アンマウント時完全解放）、シミュレーション基準座標固定によるループ安定化、`localStorage` の `try-catch` 安全保護とアバターバリデーション、`calculateHeading` の方位角計算エクスポート、および包括的単体テスト（24件）を作成・検証。 | `frontend/src/__tests__/LocationContext.test.tsx` |
+| **BUG-018** | [types.ts](file:///C:/Users/denshi36/Desktop/maho/frontend/src/types.ts) | 過去のコミット履歴（`4255380`）に起因するGitHub Actions「Frontend CI (Lint, Test & Build) (pull_request)」の失敗ステータス（❌）が表示される問題、危険度・時間帯・AIアドバイス・EnhancedHazard等の型定義不足、型ガードおよび単体テスト未網羅 | Low | 全8カテゴリ（Traffic, Crime, Disaster, Lighting, Shelter, AED, ChildSafety, Other）の `HAZARD_TYPES` / `HazardType` 定義、`EnhancedHazard` / `AiAdvice` / `NearbyHazardsResponse` / `FeedbackItem` 等の型定義拡充、`App.tsx` の重複型定義一元化、安全な型ガード関数（`isHazard`, `isValidHazardType`, `clampDangerLevel`）の実装、および単体テスト（19件）を整備・検証。 | `frontend/src/__tests__/types.test.ts` |
 
 ---
 
@@ -76,6 +77,11 @@
 | | アンマウント時クリーンアップ | コンポーネント破棄時にclearWatchが安全に呼び出されリソースリークを防止 | 🟢 PASS |
 | | エラーハンドリング | PERMISSION_DENIED / POSITION_UNAVAILABLE / TIMEOUT / 非対応ブラウザ通知 | 🟢 PASS |
 | | シミュレーション (`toggleSimulation`) | おさんぽデモの開始・800ms周期座標更新・停止とisMoving連動 | 🟢 PASS |
+| [`types.test.ts`](file:///C:/Users/denshi36/Desktop/maho/frontend/src/__tests__/types.test.ts) | 全8カテゴリ定数 (`HAZARD_TYPES`) | 全8カテゴリ（Traffic, Crime, Disaster, Lighting, Shelter, AED, ChildSafety, Other）の漏れなき定義と重複なし8件検証 | 🟢 PASS |
+| | カテゴリ型ガード (`isValidHazardType`) | 全8カテゴリでの有効性（true）および想定外文字列・小文字・空文字の安全な除外（false） | 🟢 PASS |
+| | 危険度クランプ (`clampDangerLevel`) | 1〜5の数値保持、0/負値(Lv.1クランプ)、6以上(Lv.5クランプ)、小数四捨五入、数値文字列パース、無効入力時デフォルトLv.3返却 | 🟢 PASS |
+| | ハザード型ガード (`isHazard`) | 必須プロパティ（id, lat, lng, type, description）充足検証、オプショナル・拡張プロパティ許容、null/undefined/型不正の安全な除外 | 🟢 PASS |
+| | 関連インターフェース整合性 | Comment, AiAdvice, NearbyHazardsResponse, FeedbackItem の型定義整合性とプロパティアクセス検証 | 🟢 PASS |
 
 ---
 

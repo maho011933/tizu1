@@ -15,12 +15,12 @@ pie title プロジェクト統合 & 品質検証
 ```
 
 - **ブランチ統合進捗率:** **8 / 8 担当 (100% 統合完了！🎉)**
-- **検出バグ修正率:** **14 / 14 件 修正完了 (100% 解決済み！🟢)**
+- **検出バグ修正率:** **15 / 15 件 修正完了 (100% 解決済み！🟢)**
 - **GitHub Actions CI (Run 35302151004):** **Frontend CI / Backend CI ともに PASS (100% 合格！🟢)**
 - **バックエンドテスト:** **27 / 27 件 PASS (100%)**
-- **フロントエンドテスト:** **53 / 53 件 PASS (100%)**
+- **フロントエンドテスト:** **72 / 72 件 PASS (100%)**
 - **TypeScript型チェック & 本番ビルド:** **エラー 0 件 (成功)**
-- **.gitignore / README.md / docker-compose.yml / api.test.ts / hazards.json / aiRoutes.ts / storageService.ts / server.ts / backend/.env.example / markerIcon.test.ts / LocationContext.tsx CIチェック検証:** **型チェック・リント・テスト・ビルド 全工程ローカル合格確認済み (🟢)**
+- **.gitignore / README.md / docker-compose.yml / api.test.ts / hazards.json / aiRoutes.ts / storageService.ts / server.ts / backend/.env.example / markerIcon.test.ts / LocationContext.tsx / types.ts CIチェック検証:** **型チェック・リント・テスト・ビルド 全工程ローカル合格確認済み (🟢)**
 
 ---
 
@@ -80,6 +80,12 @@ pie title プロジェクト統合 & 品質検証
     - `localStorage` アクセス時の `try-catch` 例外保護と有効アバターIDチェック、`calculateHeading` の方位角計算エクスポート（単体テスト可能化）を実装。
     - 単体テスト（24件追加・フロントエンド総テスト数: 53件、バックエンド含め全80件）を新規作成。
     - 過去のコミット履歴（`1be9e3a`）に起因するGitHub Actions「Frontend CI (Lint, Test & Build)」の失敗ログ（❌）を解消し、最新CIチェック（型チェック・リント・全テスト・ビルド）の完全合格を確認。
+15. **📐 `types.ts` 型定義拡充・型ガード実装・単体テスト整備＆CIステータス健全化**:
+    - 全8カテゴリ（Traffic, Crime, Disaster, Lighting, Shelter, AED, ChildSafety, Other）の `HAZARD_TYPES` / `HazardType` 定義、`DangerLevel` / `TimeOfDay` / `AiAdvice` / `EnhancedHazard` / `NearbyHazardsResponse` / `FeedbackItem` 等の型定義を体系的に拡充。
+    - `App.tsx` のローカル重複型定義（`interface EnhancedHazard`）を一元化・インポートへ統合。
+    - ランタイムで安全に検証可能な型ガード関数（`isHazard`, `isValidHazardType`, `clampDangerLevel`）を実装。
+    - 包括的単体テスト（19件追加・フロントエンド総テスト数: 72件、バックエンド含め全99件）を新規作成（`types.test.ts`）。
+    - 過去のコミット履歴（`4255380`）に起因するGitHub Actions「Frontend CI (Lint, Test & Build) (pull_request)」の失敗ログ（❌）を解消し、最新CIチェック（型チェック・リント・全テスト・ビルド）の完全合格を確認。
 
 ---
 
