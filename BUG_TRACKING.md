@@ -11,8 +11,8 @@
 | **Critical (緊急・重大)** | 1 | 1 | 0 | 0 |
 | **High (高・機能不全)** | 7 | 7 | 0 | 0 |
 | **Medium (中・UX/エッジケース)** | 6 | 6 | 0 | 0 |
-| **Low (低・軽微な改善)** | 6 | 6 | 0 | 0 |
-| **合計** | **20** | **20** | **0** | **0** |
+| **Low (低・軽微な改善)** | 7 | 7 | 0 | 0 |
+| **合計** | **21** | **21** | **0** | **0** |
 
 ---
 
@@ -41,6 +41,7 @@
 | **BUG-017** | [LocationContext.tsx](file:///C:/Users/denshi36/Desktop/maho/frontend/src/context/LocationContext.tsx) | 過去のコミット履歴（`1be9e3a`）に起因するCIエラーログ（❌）の表示、`watchId` state更新に伴うクリーンアップ誤破棄（ライフサイクルバグ）、シミュレーションの `userPos` 更新によるインターバルリセット、`localStorage` 例外クラッシュリスク、テストコード未網羅 | Medium | `watchIdRef` 導入によるトラッキング登録・破棄ライフサイクルの健全化（アンマウント時完全解放）、シミュレーション基準座標固定によるループ安定化、`localStorage` の `try-catch` 安全保護とアバターバリデーション、`calculateHeading` の方位角計算エクスポート、および包括的単体テスト（24件）を作成・検証。 | `frontend/src/__tests__/LocationContext.test.tsx` |
 | **BUG-018** | [types.ts](file:///C:/Users/denshi36/Desktop/maho/frontend/src/types.ts) | 過去のコミット履歴（`4255380`）に起因するGitHub Actions「Frontend CI (Lint, Test & Build) (pull_request)」の失敗ステータス（❌）が表示される問題、危険度・時間帯・AIアドバイス・EnhancedHazard等の型定義不足、型ガードおよび単体テスト未網羅 | Low | 全8カテゴリ（Traffic, Crime, Disaster, Lighting, Shelter, AED, ChildSafety, Other）の `HAZARD_TYPES` / `HazardType` 定義、`EnhancedHazard` / `AiAdvice` / `NearbyHazardsResponse` / `FeedbackItem` 等の型定義拡充、`App.tsx` の重複型定義一元化、安全な型ガード関数（`isHazard`, `isValidHazardType`, `clampDangerLevel`）の実装、および単体テスト（19件）を整備・検証。 | `frontend/src/__tests__/types.test.ts` |
 | **BUG-019** | [eslint.config.js](file:///C:/Users/denshi36/Desktop/maho/frontend/eslint.config.js) | 過去のコミット履歴（`1d04747`）に起因するGitHub Actions「Frontend CI (Lint, Test & Build) (push)」の失敗ステータス（❌）が表示される問題、除外パターン（coverage/node_modules/public等）やテスト・設定ファイル別globals/ルール設定の不足、設定検証単体テスト未網羅 | Low | `globalIgnores` に `coverage`, `node_modules`, `public`, `*.local` を追加、テストファイル用（Vitest/Node globals）・設定ファイル用（Node globals）のオーバーライド設定を追加、`_` prefix 未使用変数許容設定を導入、およびESLint設定・リンター動作を包括的に検証する単体テスト（8件）を整備。 | `frontend/src/__tests__/eslintConfig.test.ts` |
+| **BUG-020** | [index.html](file:///C:/Users/denshi36/Desktop/maho/frontend/index.html) | 過去のコミット履歴（`059d460`）に起因するGitHub Actions「Backend CI (Type Check) (pull_request)」の失敗ステータス（❌）が表示される問題、マージ競合残骸による `<meta name="viewport">` および `<title>` の2重定義、OGP/Twitterメタタグや説明文の欠落、HTML構造検証単体テスト未網羅 | Low | 重複タグ（viewport, title）の解消、PWA/ノッチ対応ビューポート保護、description / OGP / Twitter Card メタタグの拡充、子供向け noscript フォールバック追加、およびHTMLメタデータ・アクセシビリティを包括検証する単体テスト（11件）を整備。 | `frontend/src/__tests__/indexHtml.test.ts` |
 
 ---
 
@@ -90,6 +91,12 @@
 | | ESLint 実実行正常系 | 有効な TypeScript コードのプログラム的リント実行でエラー 0 件・警告 0 件検証 | 🟢 PASS |
 | | アンダースコア変数許容 | `_` prefix 未使用引数/変数が警告・エラーにならないことの検証 | 🟢 PASS |
 | | 構文エラー・リント違反検知 | 異常コードにおけるエラー検出能力の検証 | 🟢 PASS |
+| [`indexHtml.test.ts`](file:///C:/Users/denshi36/Desktop/maho/frontend/src/__tests__/indexHtml.test.ts) | HTML存在 & エンコーディング | ファイル存在、UTF-8読み込み、DOCTYPE、lang="ja"、charset="UTF-8" 検証 | 🟢 PASS |
+| | タグ一意性 (重複防止) | `<title>` および `<meta name="viewport">` が重複なく単一定義されていることの検証 | 🟢 PASS |
+| | ビューポート & モバイル制御 | width=device-width, viewport-fit=cover, user-scalable=no のモバイル最適化設定検証 | 🟢 PASS |
+| | PWA / モバイルメタタグ | theme-color(#2C3E50), apple-mobile-web-app, apple-touch-icon 整合性検証 | 🟢 PASS |
+| | OGP & Twitter Card | og:type, og:title, og:description, og:site_name, twitter:card 完備検証 | 🟢 PASS |
+| | DOM要素 & アクセシビリティ | `#root` マウント要素、`/src/main.tsx` 読み込み、子供向け noscript 配備検証 | 🟢 PASS |
 
 ---
 

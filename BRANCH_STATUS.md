@@ -18,9 +18,9 @@ pie title プロジェクト統合 & 品質検証
 - **検出バグ修正率:** **15 / 15 件 修正完了 (100% 解決済み！🟢)**
 - **GitHub Actions CI (Run 35302151004):** **Frontend CI / Backend CI ともに PASS (100% 合格！🟢)**
 - **バックエンドテスト:** **27 / 27 件 PASS (100%)**
-- **フロントエンドテスト:** **80 / 80 件 PASS (100%)**
+- **フロントエンドテスト:** **91 / 91 件 PASS (100%)**
 - **TypeScript型チェック & 本番ビルド:** **エラー 0 件 (成功)**
-- **.gitignore / README.md / docker-compose.yml / api.test.ts / hazards.json / aiRoutes.ts / storageService.ts / server.ts / backend/.env.example / markerIcon.test.ts / LocationContext.tsx / types.ts / eslint.config.js CIチェック検証:** **型チェック・リント・テスト・ビルド 全工程ローカル合格確認済み (🟢)**
+- **.gitignore / README.md / docker-compose.yml / api.test.ts / hazards.json / aiRoutes.ts / storageService.ts / server.ts / backend/.env.example / markerIcon.test.ts / LocationContext.tsx / types.ts / eslint.config.js / index.html CIチェック検証:** **型チェック・リント・テスト・ビルド 全工程ローカル合格確認済み (🟢)**
 
 ---
 
@@ -91,6 +91,11 @@ pie title プロジェクト統合 & 品質検証
     - テストファイル（Vitest/Node globals）・設定ファイル（Node globals）のオーバーライドを導入し、`_` prefix の未使用変数（`argsIgnorePattern` / `varsIgnorePattern`）を許容する柔軟なルール設計へ改善。
     - ESLint設定配列構造・グローバル除外・languageOptions・実ファイルリント・エラー検知を網羅する単体テスト（8件追加・フロントエンド総テスト数: 80件、バックエンド含め全107件）を新規作成（`eslintConfig.test.ts`）。
     - 過去のコミット履歴（`1d04747`）に起因するGitHub Actions「Frontend CI (Lint, Test & Build) (push)」の失敗ログ（❌）を解消し、最新CIチェック（型チェック・リント・全テスト・ビルド）の完全合格を確認。
+17. **🌐 `index.html` タグ重複解消・メタデータ/OGP拡充・HTML構造単体テスト整備＆CIステータス健全化**:
+    - 過去のマージ競合に起因して混入していた `<meta name="viewport">` および `<title>` の2重重複定義を解消し、モバイルノッチ対応（`viewport-fit=cover`）および拡大制御を正規化。
+    - PWAマニフェストと合致する `description`、SNSシェア用の OGP (Open Graph Protocol) および Twitter Card メタタグ、子供向け `noscript` フォールバックを追加。
+    - HTML構造・メタタグ・PWA属性・アクセシビリティを包括的に検証する単体テスト（11件追加・フロントエンド総テスト数: 91件、バックエンド含め全118件）を新規作成（`indexHtml.test.ts`）。
+    - 過去のマージコミット（`059d460`）に起因するGitHub Actions「Backend CI (Type Check) (pull_request)」の失敗ログ（❌）を解消し、最新CIチェック（型チェック・リント・全テスト・ビルド）の完全合格を確認。
 
 ---
 
