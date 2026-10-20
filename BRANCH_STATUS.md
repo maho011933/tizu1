@@ -18,9 +18,9 @@ pie title プロジェクト統合 & 品質検証
 - **検出バグ修正率:** **15 / 15 件 修正完了 (100% 解決済み！🟢)**
 - **GitHub Actions CI (Run 35302151004):** **Frontend CI / Backend CI ともに PASS (100% 合格！🟢)**
 - **バックエンドテスト:** **27 / 27 件 PASS (100%)**
-- **フロントエンドテスト:** **72 / 72 件 PASS (100%)**
+- **フロントエンドテスト:** **80 / 80 件 PASS (100%)**
 - **TypeScript型チェック & 本番ビルド:** **エラー 0 件 (成功)**
-- **.gitignore / README.md / docker-compose.yml / api.test.ts / hazards.json / aiRoutes.ts / storageService.ts / server.ts / backend/.env.example / markerIcon.test.ts / LocationContext.tsx / types.ts CIチェック検証:** **型チェック・リント・テスト・ビルド 全工程ローカル合格確認済み (🟢)**
+- **.gitignore / README.md / docker-compose.yml / api.test.ts / hazards.json / aiRoutes.ts / storageService.ts / server.ts / backend/.env.example / markerIcon.test.ts / LocationContext.tsx / types.ts / eslint.config.js CIチェック検証:** **型チェック・リント・テスト・ビルド 全工程ローカル合格確認済み (🟢)**
 
 ---
 
@@ -86,6 +86,11 @@ pie title プロジェクト統合 & 品質検証
     - ランタイムで安全に検証可能な型ガード関数（`isHazard`, `isValidHazardType`, `clampDangerLevel`）を実装。
     - 包括的単体テスト（19件追加・フロントエンド総テスト数: 72件、バックエンド含め全99件）を新規作成（`types.test.ts`）。
     - 過去のコミット履歴（`4255380`）に起因するGitHub Actions「Frontend CI (Lint, Test & Build) (pull_request)」の失敗ログ（❌）を解消し、最新CIチェック（型チェック・リント・全テスト・ビルド）の完全合格を確認。
+16. **🧹 `eslint.config.js` 設定改善・除外パターン拡充・テスト/設定オーバーライド＆CIステータス健全化**:
+    - `globalIgnores` に `coverage`, `node_modules`, `public`, `*.local` を追加し、不要なファイルのリント負荷と誤検知を防止。
+    - テストファイル（Vitest/Node globals）・設定ファイル（Node globals）のオーバーライドを導入し、`_` prefix の未使用変数（`argsIgnorePattern` / `varsIgnorePattern`）を許容する柔軟なルール設計へ改善。
+    - ESLint設定配列構造・グローバル除外・languageOptions・実ファイルリント・エラー検知を網羅する単体テスト（8件追加・フロントエンド総テスト数: 80件、バックエンド含め全107件）を新規作成（`eslintConfig.test.ts`）。
+    - 過去のコミット履歴（`1d04747`）に起因するGitHub Actions「Frontend CI (Lint, Test & Build) (push)」の失敗ログ（❌）を解消し、最新CIチェック（型チェック・リント・全テスト・ビルド）の完全合格を確認。
 
 ---
 

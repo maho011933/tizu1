@@ -11,8 +11,8 @@
 | **Critical (緊急・重大)** | 1 | 1 | 0 | 0 |
 | **High (高・機能不全)** | 7 | 7 | 0 | 0 |
 | **Medium (中・UX/エッジケース)** | 6 | 6 | 0 | 0 |
-| **Low (低・軽微な改善)** | 5 | 5 | 0 | 0 |
-| **合計** | **19** | **19** | **0** | **0** |
+| **Low (低・軽微な改善)** | 6 | 6 | 0 | 0 |
+| **合計** | **20** | **20** | **0** | **0** |
 
 ---
 
@@ -40,6 +40,7 @@
 | **BUG-016** | [markerIcon.test.ts](file:///C:/Users/denshi36/Desktop/maho/frontend/src/__tests__/markerIcon.test.ts) | 新規カテゴリ（避難所・AED）および危険度別マーカー（動的サイズ・Lvバッジ・アニメーションクラス）のテスト未網羅、および過去コミット履歴（`1be9e3a`）に起因するCIエラーログ（❌）が表示される問題 | Low | 全8カテゴリ（Traffic, Crime, Disaster, Lighting, Shelter, AED, ChildSafety, Other）の背景色・絵文字・ひらがなラベル整合性テスト、危険度Lv.1〜5のサイズ/アンカー/バッジ/アニメーションクラス検証、自宅アイコン仕様テストを完備し、最新CIチェック（Lint, Test, Build）の合格を検証。 | `frontend/src/__tests__/markerIcon.test.ts` |
 | **BUG-017** | [LocationContext.tsx](file:///C:/Users/denshi36/Desktop/maho/frontend/src/context/LocationContext.tsx) | 過去のコミット履歴（`1be9e3a`）に起因するCIエラーログ（❌）の表示、`watchId` state更新に伴うクリーンアップ誤破棄（ライフサイクルバグ）、シミュレーションの `userPos` 更新によるインターバルリセット、`localStorage` 例外クラッシュリスク、テストコード未網羅 | Medium | `watchIdRef` 導入によるトラッキング登録・破棄ライフサイクルの健全化（アンマウント時完全解放）、シミュレーション基準座標固定によるループ安定化、`localStorage` の `try-catch` 安全保護とアバターバリデーション、`calculateHeading` の方位角計算エクスポート、および包括的単体テスト（24件）を作成・検証。 | `frontend/src/__tests__/LocationContext.test.tsx` |
 | **BUG-018** | [types.ts](file:///C:/Users/denshi36/Desktop/maho/frontend/src/types.ts) | 過去のコミット履歴（`4255380`）に起因するGitHub Actions「Frontend CI (Lint, Test & Build) (pull_request)」の失敗ステータス（❌）が表示される問題、危険度・時間帯・AIアドバイス・EnhancedHazard等の型定義不足、型ガードおよび単体テスト未網羅 | Low | 全8カテゴリ（Traffic, Crime, Disaster, Lighting, Shelter, AED, ChildSafety, Other）の `HAZARD_TYPES` / `HazardType` 定義、`EnhancedHazard` / `AiAdvice` / `NearbyHazardsResponse` / `FeedbackItem` 等の型定義拡充、`App.tsx` の重複型定義一元化、安全な型ガード関数（`isHazard`, `isValidHazardType`, `clampDangerLevel`）の実装、および単体テスト（19件）を整備・検証。 | `frontend/src/__tests__/types.test.ts` |
+| **BUG-019** | [eslint.config.js](file:///C:/Users/denshi36/Desktop/maho/frontend/eslint.config.js) | 過去のコミット履歴（`1d04747`）に起因するGitHub Actions「Frontend CI (Lint, Test & Build) (push)」の失敗ステータス（❌）が表示される問題、除外パターン（coverage/node_modules/public等）やテスト・設定ファイル別globals/ルール設定の不足、設定検証単体テスト未網羅 | Low | `globalIgnores` に `coverage`, `node_modules`, `public`, `*.local` を追加、テストファイル用（Vitest/Node globals）・設定ファイル用（Node globals）のオーバーライド設定を追加、`_` prefix 未使用変数許容設定を導入、およびESLint設定・リンター動作を包括的に検証する単体テスト（8件）を整備。 | `frontend/src/__tests__/eslintConfig.test.ts` |
 
 ---
 
@@ -82,6 +83,13 @@
 | | 危険度クランプ (`clampDangerLevel`) | 1〜5の数値保持、0/負値(Lv.1クランプ)、6以上(Lv.5クランプ)、小数四捨五入、数値文字列パース、無効入力時デフォルトLv.3返却 | 🟢 PASS |
 | | ハザード型ガード (`isHazard`) | 必須プロパティ（id, lat, lng, type, description）充足検証、オプショナル・拡張プロパティ許容、null/undefined/型不正の安全な除外 | 🟢 PASS |
 | | 関連インターフェース整合性 | Comment, AiAdvice, NearbyHazardsResponse, FeedbackItem の型定義整合性とプロパティアクセス検証 | 🟢 PASS |
+| [`eslintConfig.test.ts`](file:///C:/Users/denshi36/Desktop/maho/frontend/src/__tests__/eslintConfig.test.ts) | Flat Config 形式検証 | 配列形式でのエクスポート、設定項目充足、プラグイン初期化検証 | 🟢 PASS |
+| | globalIgnores 除外設定 | dist, coverage, node_modules の包括的除外パターン検証 | 🟢 PASS |
+| | TypeScript 設定 & languageOptions | ts/tsx 対象設定ブロック、ECMAバージョン、ブラウザ globals (window等) の検証 | 🟢 PASS |
+| | テスト・設定オーバーライド | テストファイル用 vitest/node globals、設定ファイル用 node globals の検証 | 🟢 PASS |
+| | ESLint 実実行正常系 | 有効な TypeScript コードのプログラム的リント実行でエラー 0 件・警告 0 件検証 | 🟢 PASS |
+| | アンダースコア変数許容 | `_` prefix 未使用引数/変数が警告・エラーにならないことの検証 | 🟢 PASS |
+| | 構文エラー・リント違反検知 | 異常コードにおけるエラー検出能力の検証 | 🟢 PASS |
 
 ---
 
