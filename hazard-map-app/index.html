@@ -3,12 +3,23 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>みまもりハザードマップ | あなたの街の安全ガイド</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>みんなの安全マップ</title>
+    <meta name="description" content="こどもから おとなまで みんなで まちの あんぜんを まもる マップアプリ" />
+
     <!-- Google Fonts: Plus Jakarta Sans & Noto Sans JP for beautiful typography -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- PWA & Mobile Web App Meta Tags -->
+    <meta name="theme-color" content="#2C3E50" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="安全マップ" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
     <style>
       body {
         font-family: 'Plus Jakarta Sans', 'Noto Sans JP', sans-serif;
@@ -16,6 +27,7 @@
     </style>
   </head>
   <body class="antialiased bg-slate-900 text-slate-100">
+    <noscript>このアプリを つかうには JavaScriptを ゆうこうに してね！</noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
