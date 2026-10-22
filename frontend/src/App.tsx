@@ -22,6 +22,16 @@ L.Marker.prototype.options.icon = DefaultIcon;
 // 天童市役所（初期位置）
 const TENDO_POS: [number, number] = [38.3582, 140.3705];
 
+const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+
+const resolveImageUrl = (url?: string | null): string => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:')) {
+    return url;
+  }
+  return `${API_BASE}${url.startsWith('/') ? '' : '/'}${url}`;
+};
+
 // マップ移動ヘルパー
 const MapUpdater: React.FC<{ center: [number, number]; zoom?: number }> = ({ center, zoom }) => {
   const map = useMap();
@@ -116,7 +126,7 @@ function App() {
   // ハザード一覧取得
   const fetchHazards = useCallback(async () => {
     try {
-      const res = await fetch('/api/hazards');
+      const res = await fetch(`${API_BASE}/api/hazards`);
       if (res.ok) {
         const data = await res.json();
         setHazards(data);
@@ -140,7 +150,7 @@ function App() {
     }
     let eventSource: EventSource | null = null;
     try {
-      eventSource = new EventSource('/api/alerts/stream');
+      eventSource = new EventSource(`${API_BASE}/api/alerts/stream`);
       eventSource.onmessage = (event) => {
         try {
           const payload = JSON.parse(event.data);
@@ -232,7 +242,7 @@ function App() {
     }
     setIsAiAnalyzing(true);
     try {
-      const res = await fetch('/api/ai/analyze-hazard', {
+      const res = await fetch(`${API_BASE}/api/ai/analyze-hazard`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ description: formDescription })
@@ -275,7 +285,7 @@ function App() {
     try {
       if (editingHazard) {
         // 更新
-        const res = await fetch(`/api/hazards/${editingHazard.id}`, {
+        const res = await fetch(`${API_BASE}/api/hazards/${editingHazard.id}`, {
           method: 'PUT',
           body: formData
         });
@@ -288,7 +298,7 @@ function App() {
         }
       } else {
         // 新規登録
-        const res = await fetch('/api/hazards', {
+        const res = await fetch(`${API_BASE}/api/hazards`, {
           method: 'POST',
           body: formData
         });
@@ -314,7 +324,7 @@ function App() {
   const handleDeleteHazard = async (id: number) => {
     if (!window.confirm('この危険情報を「かいけつ済み」として削除しますか？')) return;
     try {
-      const res = await fetch(`/api/hazards/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${API_BASE}/api/hazards/${id}`, { method: 'DELETE' });
       if (res.ok) {
         showToast('👏 危険がかいけつしたよ！');
         fetchHazards();
@@ -331,7 +341,7 @@ function App() {
     const text = commentInputs[hazardId]?.trim();
     if (!text) return;
     try {
-      const res = await fetch(`/api/hazards/${hazardId}/comments`, {
+      const res = await fetch(`${API_BASE}/api/hazards/${hazardId}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text })
@@ -365,7 +375,7 @@ function App() {
     }));
 
     try {
-      const res = await fetch('/api/ai/advice', {
+      const res = await fetch(`${API_BASE}/api/ai/advice`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -399,7 +409,7 @@ function App() {
   const handleFindNearby = async (type: 'Shelter' | 'AED') => {
     const center = userPos || mapCenter;
     try {
-      const res = await fetch(`/api/hazards/nearby?lat=${center[0]}&lng=${center[1]}&type=${type}&limit=1`);
+      const res = await fetch(`${API_BASE}/api/hazards/nearby?lat=${center[0]}&lng=${center[1]}&type=${type}&limit=1`);
       if (res.ok) {
         const data = await res.json();
         if (data.hazards && data.hazards.length > 0) {
@@ -431,7 +441,7 @@ function App() {
     };
 
     try {
-      const res = await fetch('/api/feedback', {
+      const res = await fetch(`${API_BASE}/api/feedback`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -1003,7 +1013,7 @@ function App() {
 
                     {h.imageUrl && (
                       <img
-                        src={h.imageUrl}
+                        src={resolveImageUrl(h.imageUrl)}
                         alt="写真"
                         style={{ width: '100%', maxHeight: '100px', objectFit: 'cover', borderRadius: '6px', margin: '0.3rem 0' }}
                       />
@@ -1213,7 +1223,7 @@ function App() {
                       {h.imageUrl && (
                         <div style={{ margin: '0.4rem 0' }}>
                           <img
-                            src={h.imageUrl}
+                            src={resolveImageUrl(h.imageUrl)}
                             alt="危険箇所の写真"
                             style={{ width: '100%', maxHeight: '140px', objectFit: 'cover', borderRadius: '8px' }}
                           />
