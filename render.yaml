@@ -2,7 +2,7 @@ services:
   # バックエンド API (Express)
   - type: web
     name: tizu-backend-maho
-    env: node
+    runtime: node
     plan: free
     region: singapore
     rootDir: backend
@@ -21,9 +21,7 @@ services:
   # フロントエンド (React / Vite Static Site)
   - type: web
     name: tizu-frontend-maho
-    env: static
-    plan: free
-    region: singapore
+    runtime: static
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
@@ -32,7 +30,7 @@ services:
         fromService:
           type: web
           name: tizu-backend-maho
-          property: url
+          envVarKey: RENDER_EXTERNAL_URL
 
 databases:
   # PostgreSQL / PostGIS データベース
