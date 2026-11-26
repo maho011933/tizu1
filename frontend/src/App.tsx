@@ -128,9 +128,21 @@ function App() {
 
   // スマホ用タブ切り替え（ちず / ほうこく / いちらん）& 凡例開閉
   const [mobileTab, setMobileTab] = useState<'map' | 'form' | 'list'>('map');
-  const [isLegendOpen, setIsLegendOpen] = useState<boolean>(() =>
-    typeof window !== 'undefined' ? window.innerWidth > 768 : true
-  );
+  const isCompactViewport = () =>
+    typeof window !== 'undefined' &&
+    (window.innerWidth <= 768 || (window.innerWidth <= 960 && window.innerHeight <= 540));
+  const [isLegendOpen, setIsLegendOpen] = useState<boolean>(() => !isCompactViewport());
+
+  // 画面回転でスマホ横画面になった場合は凡例を自動で折りたたみ地図を広く表示
+  useEffect(() => {
+    const handleOrientationResize = () => {
+      if (window.innerWidth <= 960 && window.innerHeight <= 540) {
+        setIsLegendOpen(false);
+      }
+    };
+    window.addEventListener('orientationchange', handleOrientationResize);
+    return () => window.removeEventListener('orientationchange', handleOrientationResize);
+  }, []);
 
   // 位置情報コンテキスト
   const {
@@ -959,7 +971,7 @@ function App() {
                 </p>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+              <div className="hazard-cards-grid" style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
               {filteredHazards.map(h => {
                 const isMine = isMyHazard(h.id);
                 const col = typeColors[h.type] || typeColors.Other;

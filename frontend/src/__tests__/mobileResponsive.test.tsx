@@ -123,4 +123,22 @@ describe('Mobile Responsive & Tab Switching Tests (スマホ表示・タブ切�
       expect(mockInvalidateSize).toHaveBeenCalled();
     });
   });
+
+  it('横画面サイズの初期表示では凡例が折りたたまれた状態で開始すること', async () => {
+    const origWidth = window.innerWidth;
+    const origHeight = window.innerHeight;
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 844 });
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 390 });
+
+    try {
+      render(<App />);
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /みかた/ })).toBeInTheDocument();
+      });
+      expect(screen.queryByLabelText('凡例をとじる')).not.toBeInTheDocument();
+    } finally {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: origWidth });
+      Object.defineProperty(window, 'innerHeight', { configurable: true, value: origHeight });
+    }
+  });
 });

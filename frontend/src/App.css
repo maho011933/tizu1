@@ -686,13 +686,15 @@ body {
   box-sizing: border-box;
 }
 
-/* 📱 スマホ・狭い画面向け (768px以下) */
-@media (max-width: 768px) {
+/* 📱 スマホ・狭い画面向け (縦画面 768px以下 / 横画面 幅960px以下かつ高さ540px以下) */
+@media (max-width: 768px), (max-width: 960px) and (max-height: 540px) {
   .app-header {
     flex-direction: column;
     align-items: stretch;
     padding: 0.45rem 0.65rem;
     padding-top: max(0.45rem, env(safe-area-inset-top));
+    padding-left: max(0.65rem, env(safe-area-inset-left));
+    padding-right: max(0.65rem, env(safe-area-inset-right));
     gap: 0.4rem;
   }
 
@@ -730,6 +732,8 @@ body {
 
   .filter-bar {
     padding: 0.4rem 0.65rem;
+    padding-left: max(0.65rem, env(safe-area-inset-left));
+    padding-right: max(0.65rem, env(safe-area-inset-right));
     gap: 0.4rem;
   }
 
@@ -753,6 +757,8 @@ body {
     flex: 1;
     border-right: none;
     padding: 0.75rem;
+    padding-left: max(0.75rem, env(safe-area-inset-left));
+    padding-right: max(0.75rem, env(safe-area-inset-right));
   }
 
   .app-main[data-mobile-tab='map'] .app-sidebar {
@@ -812,9 +818,9 @@ body {
     gap: 0.5rem;
     position: absolute;
     top: 10px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: calc(100% - 24px);
+    left: 54px;
+    right: 10px;
+    margin: 0 auto;
     max-width: 380px;
     background: rgba(255, 255, 255, 0.96);
     border: 2px solid #2ECC71;
@@ -827,23 +833,25 @@ body {
 
   .map-legend-card {
     bottom: 12px;
-    left: 10px;
+    left: max(10px, env(safe-area-inset-left));
     padding: 0.55rem 0.75rem;
     font-size: 0.72rem;
     max-width: 205px;
+    max-height: calc(100% - 24px);
+    overflow-y: auto;
     border-radius: 14px;
   }
 
   .map-legend-toggle-btn {
     bottom: 12px;
-    left: 10px;
+    left: max(10px, env(safe-area-inset-left));
     padding: 0.38rem 0.7rem;
     font-size: 0.78rem;
   }
 
   .map-quick-actions {
     bottom: 24px;
-    right: 10px;
+    right: max(10px, env(safe-area-inset-right));
     gap: 8px;
   }
 
@@ -865,6 +873,8 @@ body {
     border-top: 2px solid #FFE082;
     padding: 0.35rem 0.4rem;
     padding-bottom: max(0.35rem, env(safe-area-inset-bottom));
+    padding-left: max(0.4rem, env(safe-area-inset-left));
+    padding-right: max(0.4rem, env(safe-area-inset-right));
     gap: 0.35rem;
     z-index: 1100;
     flex-shrink: 0;
@@ -905,6 +915,136 @@ body {
     bottom: 78px;
     padding: 0.6rem 1rem;
     font-size: 0.85rem;
+  }
+}
+
+/* 📱 スマホ横画面専用 (高さが低い横向き端末で上下の空間を最大化) */
+@media (max-width: 960px) and (max-height: 540px) {
+  .app-header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.25rem 0.6rem;
+    padding-top: max(0.25rem, env(safe-area-inset-top));
+    padding-left: max(0.6rem, env(safe-area-inset-left));
+    padding-right: max(0.6rem, env(safe-area-inset-right));
+    gap: 0.45rem;
+  }
+
+  .app-header-brand {
+    flex-shrink: 0;
+  }
+
+  .app-header-icon {
+    font-size: 1.15rem;
+  }
+
+  .app-header-title {
+    font-size: 0.9rem;
+    white-space: nowrap;
+  }
+
+  .header-actions {
+    padding-bottom: 0;
+    gap: 0.3rem;
+  }
+
+  .header-action-btn {
+    padding: 0.22rem 0.55rem;
+    font-size: 0.72rem;
+  }
+
+  .filter-bar {
+    padding: 0.24rem 0.6rem;
+    padding-left: max(0.6rem, env(safe-area-inset-left));
+    padding-right: max(0.6rem, env(safe-area-inset-right));
+    gap: 0.32rem;
+  }
+
+  .filter-btn {
+    padding: 0.22rem 0.58rem !important;
+    font-size: 0.74rem !important;
+  }
+
+  .app-sidebar {
+    padding: 0.55rem 0.75rem;
+    padding-left: max(0.75rem, env(safe-area-inset-left));
+    padding-right: max(0.75rem, env(safe-area-inset-right));
+  }
+
+  .sidebar-form-section {
+    max-width: 640px;
+    width: 100%;
+    margin: 0 auto 0.6rem auto !important;
+    padding: 0.75rem !important;
+    box-sizing: border-box;
+  }
+
+  .hazard-cards-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
+  }
+
+  .mobile-selected-pos-bar {
+    top: 8px;
+    padding: 0.3rem 0.6rem;
+  }
+
+  .map-legend-card {
+    bottom: 8px;
+    left: max(8px, env(safe-area-inset-left));
+    padding: 0.45rem 0.65rem;
+    max-height: calc(100% - 16px);
+  }
+
+  .map-legend-toggle-btn {
+    bottom: 8px;
+    left: max(8px, env(safe-area-inset-left));
+    padding: 0.28rem 0.6rem;
+    font-size: 0.74rem;
+  }
+
+  .map-quick-actions {
+    bottom: 20px;
+    right: max(8px, env(safe-area-inset-right));
+    flex-direction: row;
+    gap: 6px;
+  }
+
+  .map-quick-btn {
+    width: 38px;
+    height: 38px;
+    font-size: 1.05rem;
+  }
+
+  .mobile-tab-bar {
+    padding: 0.22rem 0.5rem;
+    padding-bottom: max(0.22rem, env(safe-area-inset-bottom));
+    padding-left: max(0.5rem, env(safe-area-inset-left));
+    padding-right: max(0.5rem, env(safe-area-inset-right));
+  }
+
+  .mobile-tab-btn {
+    flex-direction: row;
+    gap: 0.35rem;
+    padding: 0.32rem 0.4rem;
+    font-size: 0.76rem;
+  }
+
+  .mobile-tab-icon {
+    font-size: 1rem;
+  }
+
+  .app-toast {
+    bottom: 46px;
+    padding: 0.45rem 0.9rem;
+    font-size: 0.8rem;
+  }
+
+  .modal-responsive {
+    padding: 0.9rem !important;
+    max-height: 92dvh !important;
   }
 }
 
