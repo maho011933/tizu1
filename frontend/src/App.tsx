@@ -41,6 +41,25 @@ const MapUpdater: React.FC<{ center: [number, number]; zoom?: number }> = ({ cen
   return null;
 };
 
+// スマホ表示切り替え・リサイズ時のLeafletサイズ再計算ヘルパー
+const MapResizer: React.FC<{ trigger: string }> = ({ trigger }) => {
+  const map = useMap();
+  useEffect(() => {
+    const refreshSize = () => {
+      if (typeof map.invalidateSize === 'function') {
+        map.invalidateSize();
+      }
+    };
+    const timer = setTimeout(refreshSize, 60);
+    window.addEventListener('resize', refreshSize);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', refreshSize);
+    };
+  }, [map, trigger]);
+  return null;
+};
+
 // マップクリックによる座標選択
 const MapClickHandler: React.FC<{ onMapClick: (lat: number, lng: number) => void }> = ({ onMapClick }) => {
   useMapEvents({
@@ -106,6 +125,12 @@ function App() {
 
   // トースト通知
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // スマホ用タブ切り替え（ちず / ほうこく / いちらん）& 凡例開閉
+  const [mobileTab, setMobileTab] = useState<'map' | 'form' | 'list'>('map');
+  const [isLegendOpen, setIsLegendOpen] = useState<boolean>(() =>
+    typeof window !== 'undefined' ? window.innerWidth > 768 : true
+  );
 
   // 位置情報コンテキスト
   const {
@@ -213,6 +238,7 @@ function App() {
     setFormTimeOfDay(h.timeOfDay || 'all');
     setImagePreview(h.imageUrl || null);
     setFormImage(null);
+    setMobileTab('form');
   };
 
   // 編集キャンセル
@@ -292,6 +318,7 @@ function App() {
         if (res.ok) {
           showToast('✨ 危険情報を更新したよ！');
           handleCancelEdit();
+          setMobileTab('map');
           fetchHazards();
         } else {
           showToast('⚠️ 危険情報の更新にしっぱいしたよ');
@@ -309,6 +336,7 @@ function App() {
           localStorage.setItem('myHazardIds', JSON.stringify(nextMyIds));
           showToast('🎉 新しい危険をみんなに知らせたよ！');
           handleCancelEdit();
+          setMobileTab('map');
           fetchHazards();
         } else {
           showToast('⚠️ 危険情報の登録にしっぱいしたよ');
@@ -420,6 +448,7 @@ function App() {
           });
           setMapCenter([nearest.lat, nearest.lng]);
           setZoomLevel(16);
+          setMobileTab('map');
           showToast(`📍 一番ちかい【${type === 'Shelter' ? 'ひなんじょ' : 'AED'}】まで約${nearest.distanceMeters}m (歩いて${nearest.walkTimeMinutes}分) です！`);
         } else {
           showToast(`近くに${type === 'Shelter' ? 'ひなんじょ' : 'AED'}が見つかりませんでした`);
@@ -483,32 +512,24 @@ function App() {
   }, [avatar, heading, isMoving]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden', fontFamily: '"Nunito", "M PLUS Rounded 1c", sans-serif' }}>
+    <div className="app-shell">
       
       {/* 🌟 ヘッダー */}
-      <header style={{
-        backgroundColor: '#FF6B6B',
-        color: 'white',
-        padding: '0.6rem 1rem',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        boxShadow: '0 4px 12px rgba(255, 107, 107, 0.3)',
-        zIndex: 1000
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span style={{ fontSize: '1.8rem' }}>🗺️</span>
+      <header className="app-header">
+        <div className="app-header-brand">
+          <span className="app-header-icon">🗺️</span>
           <div>
-            <h1 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 900, letterSpacing: '0.05em' }}>
+            <h1 className="app-header-title">
               みんなの あんぜんマップ
             </h1>
-            <span style={{ fontSize: '0.75rem', opacity: 0.9 }}>こどもと まちの あんぜんを まもる</span>
+            <span className="app-header-subtitle">こどもと まちの あんぜんを まもる</span>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+        <div className="header-actions">
           {/* 🔥 ヒートマップ切り替えボタン */}
           <button
+            className="header-action-btn"
             onClick={() => {
               setShowHeatmap(prev => !prev);
               showToast(showHeatmap ? 'ヒートマップをOFFにしました' : '🔥 あぶないエリアのヒートマップを表示中！');
@@ -517,12 +538,7 @@ function App() {
               background: showHeatmap ? '#E74C3C' : 'white',
               color: showHeatmap ? 'white' : '#C0392B',
               border: showHeatmap ? 'none' : '2px solid #E74C3C',
-              borderRadius: '20px',
-              padding: '0.4rem 0.8rem',
               fontWeight: 900,
-              fontSize: '0.85rem',
-              cursor: 'pointer',
-              boxShadow: '0 2px 5px rgba(0,0,0,0.15)',
               display: 'flex',
               alignItems: 'center',
               gap: '0.3rem',
@@ -534,16 +550,12 @@ function App() {
           </button>
 
           <button
+            className="header-action-btn"
             onClick={() => setIsAvatarModalOpen(true)}
             style={{
               background: 'white',
+              color: '#2C3E50',
               border: 'none',
-              borderRadius: '20px',
-              padding: '0.4rem 0.8rem',
-              fontWeight: 'bold',
-              fontSize: '0.85rem',
-              cursor: 'pointer',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
               display: 'flex',
               alignItems: 'center',
               gap: '0.3rem'
@@ -554,68 +566,48 @@ function App() {
           </button>
 
           <button
+            className="header-action-btn"
             onClick={toggleSimulation}
             style={{
               background: isSimulating ? '#2ECC71' : '#FFF3E0',
               color: isSimulating ? 'white' : '#E67E22',
-              border: 'none',
-              borderRadius: '20px',
-              padding: '0.4rem 0.8rem',
-              fontWeight: 'bold',
-              fontSize: '0.85rem',
-              cursor: 'pointer',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.15)'
+              border: 'none'
             }}
           >
             {isSimulating ? '🚶 おさんぽ中' : '🚶 おさんぽ体験'}
           </button>
 
           <button
+            className="header-action-btn"
             onClick={() => handleFindNearby('Shelter')}
             style={{
               background: '#2ECC71',
               color: 'white',
-              border: 'none',
-              borderRadius: '20px',
-              padding: '0.4rem 0.8rem',
-              fontWeight: 'bold',
-              fontSize: '0.85rem',
-              cursor: 'pointer',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.15)'
+              border: 'none'
             }}
           >
             🏫 ひなんじょ
           </button>
 
           <button
+            className="header-action-btn"
             onClick={() => handleFindNearby('AED')}
             style={{
               background: '#E67E22',
               color: 'white',
-              border: 'none',
-              borderRadius: '20px',
-              padding: '0.4rem 0.8rem',
-              fontWeight: 'bold',
-              fontSize: '0.85rem',
-              cursor: 'pointer',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.15)'
+              border: 'none'
             }}
           >
             💓 AED
           </button>
 
           <button
+            className="header-action-btn"
             onClick={() => setIsFeedbackOpen(true)}
             style={{
               background: '#3498DB',
               color: 'white',
-              border: 'none',
-              borderRadius: '20px',
-              padding: '0.4rem 0.8rem',
-              fontWeight: 'bold',
-              fontSize: '0.85rem',
-              cursor: 'pointer',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.15)'
+              border: 'none'
             }}
           >
             💌 ご意見
@@ -624,24 +616,15 @@ function App() {
       </header>
 
       {/* 🏷️ 危険カテゴリ絞り込みフィルターバー */}
-      <div style={{
-        background: '#FFF9E6',
-        padding: '0.6rem 1rem',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.6rem',
-        overflowX: 'auto',
-        whiteSpace: 'nowrap',
-        borderBottom: '2px solid #FFE082',
-        zIndex: 900
-      }}>
-        <span style={{ fontSize: '0.85rem', fontWeight: 900, color: '#D35400', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+      <div className="filter-bar">
+        <span style={{ fontSize: '0.85rem', fontWeight: 900, color: '#D35400', display: 'flex', alignItems: 'center', gap: '0.2rem', flexShrink: 0 }}>
           <span>🔍</span>
-          <span>しぼりこみ:</span>
+          <span className="filter-label-text">しぼりこみ:</span>
         </span>
 
         {/* ぜんぶボタン */}
         <button
+          className="filter-btn"
           onClick={() => setSelectedCategory('ALL')}
           style={{
             padding: '0.4rem 0.9rem',
@@ -681,6 +664,7 @@ function App() {
           return (
             <button
               key={typeKey}
+              className="filter-btn"
               onClick={() => setSelectedCategory(typeKey)}
               style={{
                 padding: '0.4rem 0.9rem',
@@ -715,25 +699,14 @@ function App() {
         })}
       </div>
 
-      {/* 📦 メインコンテンツ（2カラム：サイドバー＆マップ） */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      {/* 📦 メインコンテンツ（PC: 2カラム / スマホ: タブ切り替え） */}
+      <div className="app-main" data-mobile-tab={mobileTab}>
         
         {/* 📋 左側サイドバー（投稿フォーム ＆ リスト） */}
-        <aside style={{
-          width: '360px',
-          minWidth: '320px',
-          maxWidth: '420px',
-          backgroundColor: '#F8F9FA',
-          borderRight: '2px solid #E9ECEF',
-          display: 'flex',
-          flexDirection: 'column',
-          overflowY: 'auto',
-          padding: '1rem',
-          boxSizing: 'border-box'
-        }}>
+        <aside className="app-sidebar">
           
           {/* 📝 投稿フォーム */}
-          <div style={{
+          <div className="sidebar-form-section" style={{
             backgroundColor: 'white',
             padding: '1rem',
             borderRadius: '16px',
@@ -884,7 +857,19 @@ function App() {
 
               {/* 座標選択ガイド */}
               <div style={{ marginBottom: '0.8rem', fontSize: '0.8rem', color: selectedPos ? '#2ECC71' : '#E67E22', fontWeight: 'bold' }}>
-                {selectedPos ? `📍 ばしょ選択済み (${selectedPos[0].toFixed(4)}, ${selectedPos[1].toFixed(4)})` : '👉 ちずを おして ばしょを えらんでね！'}
+                <div>
+                  {selectedPos ? `📍 ばしょ選択済み (${selectedPos[0].toFixed(4)}, ${selectedPos[1].toFixed(4)})` : '👉 ちずを おして ばしょを えらんでね！'}
+                </div>
+                <button
+                  type="button"
+                  className="mobile-pick-map-btn"
+                  onClick={() => {
+                    setMobileTab('map');
+                    showToast('🗺️ ちずの すきな ばしょを タップしてね！');
+                  }}
+                >
+                  🗺️ {selectedPos ? 'ちずで ばしょを えらびなおす' : 'ちずで ばしょを えらぶ'}
+                </button>
               </div>
 
               {/* 送信・キャンセルボタン */}
@@ -920,7 +905,7 @@ function App() {
           </div>
 
           {/* 📋 危険箇所一覧リスト */}
-          <div>
+          <div className="sidebar-list-section">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
               <h3 style={{ margin: 0, fontSize: '1rem', color: '#2C3E50', fontWeight: 900 }}>
                 危険箇所一覧 ({filteredHazards.length}件)
@@ -1073,7 +1058,7 @@ function App() {
         </aside>
 
         {/* 🗺️ 右側マップエリア */}
-        <div style={{ flex: 1, position: 'relative' }}>
+        <div className="app-map-area">
           <MapContainer
             center={TENDO_POS}
             zoom={zoomLevel}
@@ -1085,6 +1070,7 @@ function App() {
             />
 
             <MapUpdater center={mapCenter} zoom={zoomLevel} />
+            <MapResizer trigger={mobileTab} />
             <MapClickHandler onMapClick={handleMapClick} />
 
             {/* 🔥 ヒートマップレイヤー (危険度に応じた多重サーマルグラデーションサークル) */}
@@ -1265,95 +1251,149 @@ function App() {
           </MapContainer>
 
           {/* 🗺️ マップのみかた凡例 (Legend: ヒートマップ & ピンサイズ) */}
-          <div style={{
-            position: 'absolute',
-            bottom: '20px',
-            left: '20px',
-            background: 'rgba(255, 255, 255, 0.94)',
-            backdropFilter: 'blur(6px)',
-            padding: '0.7rem 1rem',
-            borderRadius: '16px',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
-            zIndex: 1000,
-            fontSize: '0.8rem',
-            color: '#2C3E50',
-            border: '2px solid #FFE082',
-            maxWidth: '240px'
-          }}>
-            <div style={{ fontWeight: 900, marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.3rem', color: '#D35400' }}>
+          {isLegendOpen ? (
+            <div className="map-legend-card">
+              <div style={{ fontWeight: 900, marginBottom: '0.4rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.3rem', color: '#D35400' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                  <span>🗺️</span>
+                  <span>マップのみかた</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsLegendOpen(false)}
+                  aria-label="凡例をとじる"
+                  style={{
+                    background: '#FFF3E0',
+                    border: 'none',
+                    borderRadius: '50%',
+                    width: '22px',
+                    height: '22px',
+                    fontSize: '0.75rem',
+                    fontWeight: 'bold',
+                    color: '#D35400',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* 📌 ピンの大きさガイド */}
+              <div style={{ marginBottom: showHeatmap ? '0.5rem' : '0', borderBottom: showHeatmap ? '1px dashed #DDD' : 'none', paddingBottom: showHeatmap ? '0.4rem' : '0' }}>
+                <div style={{ fontSize: '0.72rem', fontWeight: 'bold', color: '#555', marginBottom: '0.2rem' }}>
+                  📌 危険度とピンの大きさ:
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.2rem', marginTop: '0.3rem' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                    <div style={{ width: '16px', height: '16px', borderRadius: '50%', background: '#7F8C8D', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '8px', fontWeight: 'bold' }}>1</div>
+                    <span style={{ fontSize: '0.65rem', color: '#666' }}>Lv.1(小)</span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                    <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#F39C12', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '9px', fontWeight: 'bold' }}>3</div>
+                    <span style={{ fontSize: '0.65rem', color: '#666' }}>Lv.3(中)</span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                    <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#E74C3C', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '10px', fontWeight: 'bold', border: '2px solid #C0392B' }}>5</div>
+                    <span style={{ fontSize: '0.65rem', color: '#E74C3C', fontWeight: 'bold' }}>Lv.5(特大)</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 🔥 ヒートマップ凡例 (表示中のみ) */}
+              {showHeatmap && (
+                <div style={{ fontSize: '0.72rem' }}>
+                  <div style={{ fontWeight: 'bold', color: '#C0392B', marginBottom: '0.2rem', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                    <span>🔥</span>
+                    <span>ヒートマップ熱量:</span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                      <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#D50000', display: 'inline-block' }}></span>
+                      <span style={{ color: '#D50000', fontWeight: 'bold' }}>超危険 (Lv.5 / 赤)</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                      <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#FF9100', display: 'inline-block' }}></span>
+                      <span style={{ color: '#E65100' }}>危険 (Lv.4 / 橙)</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                      <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#FFC107', display: 'inline-block' }}></span>
+                      <span style={{ color: '#F57F17' }}>注意 (Lv.3 / 黄)</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                      <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#81C784', display: 'inline-block' }}></span>
+                      <span style={{ color: '#2E7D32' }}>軽度 (Lv.1〜2 / 緑)</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="map-legend-toggle-btn"
+              onClick={() => setIsLegendOpen(true)}
+            >
               <span>🗺️</span>
-              <span>マップのみかた</span>
-            </div>
+              <span>みかた</span>
+            </button>
+          )}
 
-            {/* 📌 ピンの大きさガイド */}
-            <div style={{ marginBottom: showHeatmap ? '0.5rem' : '0', borderBottom: showHeatmap ? '1px dashed #DDD' : 'none', paddingBottom: showHeatmap ? '0.4rem' : '0' }}>
-              <div style={{ fontSize: '0.72rem', fontWeight: 'bold', color: '#555', marginBottom: '0.2rem' }}>
-                📌 危険度とピンの大きさ:
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.2rem', marginTop: '0.3rem' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-                  <div style={{ width: '16px', height: '16px', borderRadius: '50%', background: '#7F8C8D', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '8px', fontWeight: 'bold' }}>1</div>
-                  <span style={{ fontSize: '0.65rem', color: '#666' }}>Lv.1(小)</span>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-                  <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#F39C12', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '9px', fontWeight: 'bold' }}>3</div>
-                  <span style={{ fontSize: '0.65rem', color: '#666' }}>Lv.3(中)</span>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-                  <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#E74C3C', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '10px', fontWeight: 'bold', border: '2px solid #C0392B' }}>5</div>
-                  <span style={{ fontSize: '0.65rem', color: '#E74C3C', fontWeight: 'bold' }}>Lv.5(特大)</span>
-                </div>
+          {/* 📍 スマホ用：地図タップで場所を選んだ時の報告ショートカットバー */}
+          {selectedPos && (
+            <div className="mobile-selected-pos-bar">
+              <span style={{ fontSize: '0.78rem', fontWeight: 900, color: '#27AE60' }}>
+                📍 ばしょを えらんだよ！
+              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setMobileTab('form')}
+                  style={{
+                    background: '#FF6B6B',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '14px',
+                    padding: '0.35rem 0.65rem',
+                    fontSize: '0.78rem',
+                    fontWeight: 900,
+                    cursor: 'pointer'
+                  }}
+                >
+                  📝 ここに ほうこく！
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPos(null)}
+                  aria-label="選択をとりけす"
+                  style={{
+                    background: '#ECEFF1',
+                    color: '#546E7A',
+                    border: 'none',
+                    borderRadius: '50%',
+                    width: '26px',
+                    height: '26px',
+                    fontSize: '0.75rem',
+                    fontWeight: 'bold',
+                    cursor: 'pointer'
+                  }}
+                >
+                  ✕
+                </button>
               </div>
             </div>
-
-            {/* 🔥 ヒートマップ凡例 (表示中のみ) */}
-            {showHeatmap && (
-              <div style={{ fontSize: '0.72rem' }}>
-                <div style={{ fontWeight: 'bold', color: '#C0392B', marginBottom: '0.2rem', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
-                  <span>🔥</span>
-                  <span>ヒートマップ熱量:</span>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#D50000', display: 'inline-block' }}></span>
-                    <span style={{ color: '#D50000', fontWeight: 'bold' }}>超危険 (Lv.5 / 赤)</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#FF9100', display: 'inline-block' }}></span>
-                    <span style={{ color: '#E65100' }}>危険 (Lv.4 / 橙)</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#FFC107', display: 'inline-block' }}></span>
-                    <span style={{ color: '#F57F17' }}>注意 (Lv.3 / 黄)</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#81C784', display: 'inline-block' }}></span>
-                    <span style={{ color: '#2E7D32' }}>軽度 (Lv.1〜2 / 緑)</span>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+          )}
 
           {/* クイック操作ボタン */}
-          <div style={{ position: 'absolute', bottom: '20px', right: '20px', display: 'flex', flexDirection: 'column', gap: '10px', zIndex: 1000 }}>
+          <div className="map-quick-actions">
             {userPos && (
               <button
+                className="map-quick-btn"
                 onClick={() => { setMapCenter(userPos); setZoomLevel(16); }}
                 title="いまのばしょに移動"
-                style={{
-                  width: '46px',
-                  height: '46px',
-                  borderRadius: '50%',
-                  background: 'white',
-                  border: '2px solid #3498DB',
-                  fontSize: '1.3rem',
-                  cursor: 'pointer',
-                  boxShadow: '0 3px 8px rgba(0,0,0,0.3)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
+                style={{ border: '2px solid #3498DB' }}
               >
                 📍
               </button>
@@ -1361,48 +1401,54 @@ function App() {
 
             {homePos && (
               <button
+                className="map-quick-btn"
                 onClick={() => { setMapCenter(homePos); setZoomLevel(16); }}
                 title="いつものばしょ（自宅）に移動"
-                style={{
-                  width: '46px',
-                  height: '46px',
-                  borderRadius: '50%',
-                  background: 'white',
-                  border: '2px solid #2C3E50',
-                  fontSize: '1.3rem',
-                  cursor: 'pointer',
-                  boxShadow: '0 3px 8px rgba(0,0,0,0.3)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
+                style={{ border: '2px solid #2C3E50' }}
               >
                 🏠
               </button>
             )}
 
             <button
+              className="map-quick-btn"
               onClick={() => { setMapCenter(TENDO_POS); setZoomLevel(15); }}
               title="天童市役所に移動"
-              style={{
-                width: '46px',
-                height: '46px',
-                borderRadius: '50%',
-                background: 'white',
-                border: '2px solid #FF6B6B',
-                fontSize: '1.3rem',
-                cursor: 'pointer',
-                boxShadow: '0 3px 8px rgba(0,0,0,0.3)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
+              style={{ border: '2px solid #FF6B6B' }}
             >
               🌸
             </button>
           </div>
         </div>
       </div>
+
+      {/* 📱 スマホ用ボトムナビゲーション */}
+      <nav className="mobile-tab-bar" aria-label="スマホ切り替えメニュー">
+        <button
+          type="button"
+          className={`mobile-tab-btn ${mobileTab === 'map' ? 'active' : ''}`}
+          onClick={() => setMobileTab('map')}
+        >
+          <span className="mobile-tab-icon">🗺️</span>
+          <span>ちず</span>
+        </button>
+        <button
+          type="button"
+          className={`mobile-tab-btn ${mobileTab === 'form' ? 'active' : ''}`}
+          onClick={() => setMobileTab('form')}
+        >
+          <span className="mobile-tab-icon">📝</span>
+          <span>{editingHazard ? 'なおす' : 'ほうこく'}</span>
+        </button>
+        <button
+          type="button"
+          className={`mobile-tab-btn ${mobileTab === 'list' ? 'active' : ''}`}
+          onClick={() => setMobileTab('list')}
+        >
+          <span className="mobile-tab-icon">📋</span>
+          <span>いちらん ({filteredHazards.length})</span>
+        </button>
+      </nav>
 
       {/* 🎭 アバター選択モーダル */}
       {isAvatarModalOpen && (
@@ -1419,7 +1465,7 @@ function App() {
           zIndex: 2000,
           padding: '1rem'
         }}>
-          <div style={{ background: 'white', borderRadius: '20px', padding: '1.5rem', width: '100%', maxWidth: '380px' }}>
+          <div className="modal-responsive" style={{ background: 'white', borderRadius: '20px', padding: '1.25rem', width: '100%', maxWidth: '380px', maxHeight: '90dvh', overflowY: 'auto' }}>
             <h3 style={{ margin: '0 0 1rem 0', textAlign: 'center', color: '#2C3E50' }}>
               👤 おすきなアバターをえらんでね！
             </h3>
@@ -1469,7 +1515,7 @@ function App() {
           zIndex: 2000,
           padding: '1rem'
         }}>
-          <div style={{ background: 'white', borderRadius: '20px', padding: '1.5rem', width: '100%', maxWidth: '440px', maxHeight: '90vh', overflowY: 'auto' }}>
+          <div className="modal-responsive" style={{ background: 'white', borderRadius: '20px', padding: '1.25rem', width: '100%', maxWidth: '440px', maxHeight: '90dvh', overflowY: 'auto' }}>
             <h3 style={{ margin: '0 0 0.8rem 0', textAlign: 'center', color: '#3498DB' }}>
               💌 アプリのご意見・ご感想
             </h3>
@@ -1582,21 +1628,7 @@ function App() {
 
       {/* 🔔 トースト通知 */}
       {toastMessage && (
-        <div style={{
-          position: 'fixed',
-          bottom: '24px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          backgroundColor: '#2C3E50',
-          color: 'white',
-          padding: '0.8rem 1.4rem',
-          borderRadius: '30px',
-          boxShadow: '0 6px 16px rgba(0,0,0,0.3)',
-          fontWeight: 'bold',
-          fontSize: '0.95rem',
-          zIndex: 3000,
-          animation: 'fade-in 0.3s ease-out'
-        }}>
+        <div className="app-toast">
           {toastMessage}
         </div>
       )}
